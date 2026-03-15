@@ -20,25 +20,30 @@ def get_db():
 
 def init_db():
     if not DATABASE_URL:
+        print('[WARN] DATABASE_URL not set — document persistence disabled')
         return
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS documents (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            category TEXT NOT NULL DEFAULT 'other',
-            tags TEXT DEFAULT '[]',
-            source TEXT DEFAULT '',
-            url TEXT DEFAULT '',
-            content TEXT DEFAULT '',
-            summary TEXT DEFAULT '',
-            type TEXT DEFAULT '',
-            created_at TIMESTAMP DEFAULT NOW()
-        )
-    ''')
-    cur.close()
-    conn.close()
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS documents (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'other',
+                tags TEXT DEFAULT '[]',
+                source TEXT DEFAULT '',
+                url TEXT DEFAULT '',
+                content TEXT DEFAULT '',
+                summary TEXT DEFAULT '',
+                type TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        ''')
+        cur.close()
+        conn.close()
+        print('[OK] Database initialized')
+    except Exception as e:
+        print('[ERROR] Database init failed: ' + str(e))
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
