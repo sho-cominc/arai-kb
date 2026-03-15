@@ -22,7 +22,7 @@ A single-page hotel staff knowledge base and chat interface for LOTTE ARAI RESOR
 ## Tech Stack
 - Pure HTML/CSS/JavaScript frontend (no build step required)
 - Flask (Python) backend for API proxying
-- Google Gemini API (gemini-2.0-flash) for AI features
+- Google Gemini API (gemini-2.5-flash) for AI features
 - Uses XLSX.js (via CDN) for Excel file parsing
 - Google Fonts for typography (Cormorant Garamond, Noto Sans JP)
 
