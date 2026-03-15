@@ -61,9 +61,20 @@ function createDocFromForm() {
   };
 }
 
-function saveFromConfirm() {
+async function saveFromConfirm() {
   if (!pendingDoc) return;
   var doc = createDocFromForm();
+  try {
+    var res = await fetch('/api/docs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(doc)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+  } catch (e) {
+    alert('保存に失敗しました');
+    return;
+  }
   userDocs.push(doc);
   clearPending();
   hideModal('tagConfirm');

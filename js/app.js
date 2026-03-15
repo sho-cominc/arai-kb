@@ -68,6 +68,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (btn) { removeTag(parseInt(btn.getAttribute('data-tag-index'), 10)); }
   });
 
+  loadDocs();
+
   el('messages').addEventListener('click', function(e) {
     if (e.target.closest('.ref-url a')) return;
     var ref = e.target.closest('[data-builtin-ref]');

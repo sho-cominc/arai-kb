@@ -1,6 +1,17 @@
 var userDocs = [];
 var viewingId = null;
 
+async function loadDocs() {
+  try {
+    var res = await fetch('/api/docs');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    userDocs = await res.json();
+  } catch (e) {
+    userDocs = [];
+  }
+  renderList();
+}
+
 function renderList() {
   var container = el('dmItems');
   if (!userDocs.length) {
@@ -61,7 +72,14 @@ function deleteViewing() {
   showDocViewer(false);
 }
 
-function deleteById(id) {
+async function deleteById(id) {
+  try {
+    var res = await fetch('/api/docs/' + encodeURIComponent(id), { method: 'DELETE' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+  } catch (e) {
+    alert('削除に失敗しました');
+    return;
+  }
   userDocs = userDocs.filter(function(x) { return x.id !== id; });
   if (viewingId === id) { viewingId = null; }
   renderList();
