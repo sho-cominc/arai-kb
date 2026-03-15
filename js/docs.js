@@ -2,13 +2,16 @@ var userDocs = [];
 var viewingId = null;
 
 async function loadDocs() {
+  showAiProc('データ読み込み中...');
   try {
     var res = await fetch('/api/docs');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     userDocs = await res.json();
   } catch (e) {
     userDocs = [];
+    alert('データの読み込みに失敗しました');
   }
+  hideAiProc();
   renderList();
 }
 
@@ -64,12 +67,10 @@ function viewDoc(id) {
   el('docDetailContent').textContent = preview + (d.content && d.content.length > 3000 ? '\n\n[...]' : '');
 }
 
-function deleteViewing() {
+async function deleteViewing() {
   if (!viewingId) return;
   if (!confirm('削除しますか？')) return;
-  deleteById(viewingId);
-  viewingId = null;
-  showDocViewer(false);
+  await deleteById(viewingId);
 }
 
 async function deleteById(id) {
@@ -81,6 +82,9 @@ async function deleteById(id) {
     return;
   }
   userDocs = userDocs.filter(function(x) { return x.id !== id; });
-  if (viewingId === id) { viewingId = null; }
+  if (viewingId === id) {
+    viewingId = null;
+    showDocViewer(false);
+  }
   renderList();
 }
