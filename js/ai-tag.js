@@ -16,7 +16,8 @@ async function aiTagFile(filename, type, content) {
     var parsed = result.parsed || { title: filename, category: 'other', tags: [], summary: '' };
     openTagConfirm(filename, type, content, parsed);
   } catch (e) {
-    openTagConfirm(filename, type, content, {});
+    console.error('[aiTagFile] failed:', e);
+    openTagConfirm(filename, type, content, { title: filename, category: 'other', tags: [], summary: '' });
   }
 }
 
@@ -33,7 +34,7 @@ function openTagConfirm(filename, type, content, parsed) {
 
 function renderTagChips() {
   el('tagChips').innerHTML = pendingTags.map(function(t, i) { return '\
-    <span class="tag-chip">' + t + '\
+    <span class="tag-chip">' + escapeHtml(t) + '\
       <button class="remove-tag" data-tag-index="' + i + '">×</button>\
     </span>'; }).join('');
 }
@@ -70,9 +71,14 @@ async function saveFromConfirm() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(doc)
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!res.ok) {
+      var errData = {};
+      try { errData = await res.json(); } catch (_) {}
+      throw new Error(errData.error || 'HTTP ' + res.status);
+    }
   } catch (e) {
-    alert('保存に失敗しました');
+    console.error('[saveFromConfirm] failed:', e);
+    alert('保存に失敗しました: ' + e.message);
     return;
   }
   userDocs.push(doc);

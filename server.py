@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import traceback
 from datetime import datetime, timezone
 from flask import Flask, request, jsonify, send_from_directory
 import google.generativeai as genai
@@ -24,39 +25,46 @@ def init_firestore():
         creds_dict = json.loads(FIREBASE_CREDENTIALS)
         credentials = service_account.Credentials.from_service_account_info(creds_dict)
         firestore_db = firestore.Client(credentials=credentials, project=creds_dict.get('project_id'))
-        print('[OK] Firestore initialized')
+        print('[OK] Firestore initialized (project: ' + str(creds_dict.get('project_id')) + ')')
     except Exception as e:
         print('[ERROR] Firestore init failed: ' + str(e))
+        traceback.print_exc()
+
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
+    print('[OK] Gemini API key configured')
+else:
+    print('[WARN] GEMINI_API_KEY not set — chat will not work')
 
 
-def error_response(message):
+def chat_error(message, status=200):
     payload = json.dumps({
         'answer': message,
         'items': [],
         'table_rows': [],
         'source': None
     })
-    return jsonify({'content': [{'text': payload}]})
+    resp = jsonify({'content': [{'text': payload}]})
+    resp.status_code = status
+    return resp
 
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
     if not GEMINI_API_KEY:
-        return error_response('GEMINI_API_KEY が設定されていません。Replitの環境変数に設定してください。')
+        return chat_error('GEMINI_API_KEY が設定されていません。環境変数に設定してください。', 503)
 
     data = request.get_json(silent=True)
     if not data or not isinstance(data, dict):
-        return error_response('リクエストが不正です。'), 400
+        return chat_error('リクエストが不正です。'), 400
 
     messages = data.get('messages', [])
     if not isinstance(messages, list) or not messages:
-        return error_response('メッセージが空です。'), 400
+        return chat_error('メッセージが空です。'), 400
 
     system = data.get('system', '')
-    max_tokens = min(int(data.get('max_tokens', 1000)), 4096)
+    max_tokens = min(int(data.get('max_tokens', 2000)), 4096)
 
     try:
         model = genai.GenerativeModel(
@@ -81,17 +89,18 @@ def chat():
         )
 
         text = response.text
-
         return jsonify({'content': [{'text': text}]})
 
-    except Exception:
-        return error_response('AIの応答中にエラーが発生しました。しばらく待ってからもう一度お試しください。')
+    except Exception as e:
+        print('[ERROR] /api/chat failed: ' + str(e))
+        traceback.print_exc()
+        return chat_error('AIの応答中にエラーが発生しました: ' + str(e)), 500
 
 
 @app.route('/api/docs', methods=['GET'])
 def list_docs():
     if not firestore_db:
-        return jsonify({'error': 'FIREBASE_CREDENTIALS not configured'}), 500
+        return jsonify({'error': 'FIREBASE_CREDENTIALS not configured'}), 503
     try:
         docs_ref = firestore_db.collection('documents').order_by('created_at', direction='DESCENDING')
         result = []
@@ -107,14 +116,16 @@ def list_docs():
                 doc['created_at'] = str(ca)
             result.append(doc)
         return jsonify(result)
-    except Exception:
-        return jsonify({'error': 'Firestore read failed'}), 500
+    except Exception as e:
+        print('[ERROR] /api/docs GET failed: ' + str(e))
+        traceback.print_exc()
+        return jsonify({'error': 'Firestore read failed: ' + str(e)}), 500
 
 
 @app.route('/api/docs', methods=['POST'])
 def create_doc():
     if not firestore_db:
-        return jsonify({'error': 'FIREBASE_CREDENTIALS not configured'}), 500
+        return jsonify({'error': 'FIREBASE_CREDENTIALS not configured'}), 503
     data = request.get_json(silent=True)
     if not data:
         return jsonify({'error': 'Invalid request'}), 400
@@ -132,20 +143,34 @@ def create_doc():
     }
     try:
         firestore_db.collection('documents').document(doc_id).set(doc_data)
-    except Exception:
-        return jsonify({'error': 'Firestore write failed'}), 500
+        print('[OK] Document saved: ' + doc_id)
+    except Exception as e:
+        print('[ERROR] /api/docs POST failed: ' + str(e))
+        traceback.print_exc()
+        return jsonify({'error': 'Firestore write failed: ' + str(e)}), 500
     return jsonify({'id': doc_id, 'ok': True})
 
 
 @app.route('/api/docs/<doc_id>', methods=['DELETE'])
 def delete_doc(doc_id):
     if not firestore_db:
-        return jsonify({'error': 'FIREBASE_CREDENTIALS not configured'}), 500
+        return jsonify({'error': 'FIREBASE_CREDENTIALS not configured'}), 503
     try:
         firestore_db.collection('documents').document(doc_id).delete()
-    except Exception:
-        return jsonify({'error': 'Firestore delete failed'}), 500
+        print('[OK] Document deleted: ' + doc_id)
+    except Exception as e:
+        print('[ERROR] /api/docs DELETE failed: ' + str(e))
+        traceback.print_exc()
+        return jsonify({'error': 'Firestore delete failed: ' + str(e)}), 500
     return jsonify({'ok': True})
+
+
+@app.route('/api/health', methods=['GET'])
+def health():
+    return jsonify({
+        'gemini': bool(GEMINI_API_KEY),
+        'firestore': firestore_db is not None,
+    })
 
 
 @app.route('/')

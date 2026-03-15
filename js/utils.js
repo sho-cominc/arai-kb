@@ -20,10 +20,28 @@ async function callAI(messages, system, maxTokens) {
       messages: messages
     })
   });
-  var data = await res.json();
+
+  var data;
+  try {
+    data = await res.json();
+  } catch (e) {
+    console.error('[callAI] Failed to parse JSON response (HTTP ' + res.status + '):', e);
+    throw new Error('サーバーからの応答を解析できませんでした (HTTP ' + res.status + ')');
+  }
+
+  if (!res.ok) {
+    var errMsg = (data && data.error) ? data.error : 'HTTP ' + res.status;
+    console.error('[callAI] Server error:', errMsg);
+    throw new Error(errMsg);
+  }
+
   var raw = data.content && data.content[0] && data.content[0].text || '{}';
   var parsed;
-  try { parsed = JSON.parse(raw.replace(/```json|```/g, '').trim()); }
-  catch (e) { parsed = null; }
+  try {
+    parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+  } catch (e) {
+    console.warn('[callAI] Response is not JSON, using raw text. Response:', raw.slice(0, 200));
+    parsed = null;
+  }
   return { raw: raw, parsed: parsed };
 }

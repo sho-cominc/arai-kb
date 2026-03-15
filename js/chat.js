@@ -19,8 +19,10 @@ var chatHistory = [];
 
 async function sendMessage(text) {
   var input = el('userInput');
-  var msg = text || input.value.trim(); if (!msg) return;
-  input.value = ''; appendUser(msg);
+  var msg = text || input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  appendUser(msg);
   var tid = showThinking();
   el('sendBtn').disabled = true;
   chatHistory.push({ role: 'user', content: msg });
@@ -28,8 +30,14 @@ async function sendMessage(text) {
     var result = await callAI(chatHistory, buildSys(), CONFIG.CHAT_MAX_TOKENS);
     chatHistory.push({ role: 'assistant', content: result.raw });
     var parsed = result.parsed || { answer: result.raw, items: [], table_rows: [], source: null };
-    hideThinking(tid); renderAnswer(parsed);
-  } catch (e) { hideThinking(tid); appendUser('Error. Please try again.'); }
+    hideThinking(tid);
+    renderAnswer(parsed);
+  } catch (e) {
+    console.error('[sendMessage] error:', e);
+    hideThinking(tid);
+    appendError(e.message || 'エラーが発生しました。もう一度お試しください。');
+    chatHistory.pop();
+  }
   el('sendBtn').disabled = false;
 }
 
@@ -38,8 +46,23 @@ function askQuick(t) { el('userInput').value = t; sendMessage(t); }
 function appendUser(text) {
   var d = document.createElement('div');
   d.className = 'message user';
-  d.innerHTML = '<div class="avatar user">S</div><div class="bubble">' + text + '</div>';
+  d.innerHTML = '<div class="avatar user">S</div><div class="bubble">' + escapeHtml(text) + '</div>';
   appendToMessages(d);
+}
+
+function appendError(text) {
+  var d = document.createElement('div');
+  d.className = 'message ai';
+  d.innerHTML = '<div class="avatar ai">L</div><div class="bubble" style="color:#c0392b">⚠️ ' + escapeHtml(text) + '</div>';
+  appendToMessages(d);
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function showThinking() {
@@ -59,9 +82,9 @@ function renderAnswer(data) {
     h += '<div class="answer-section"><div class="answer-label">Results</div><div class="ans-item-grid">';
     data.items.forEach(function(item) {
       h += '<div class="ans-item-card">\
-        <div class="ans-item-name">' + item.name + '</div>\
-        <div class="ans-item-price">' + (item.price_adult || '—') + (item.price_child && item.price_child !== 'null' ? ' / ' + item.price_child : '') + '</div>\
-        <div class="ans-item-meta">' + (item.time || '') + ' ' + (item.period ? '· ' + item.period : '') + '</div>\
+        <div class="ans-item-name">' + escapeHtml(item.name || '') + '</div>\
+        <div class="ans-item-price">' + escapeHtml(item.price_adult || '—') + (item.price_child && item.price_child !== 'null' ? ' / ' + escapeHtml(item.price_child) : '') + '</div>\
+        <div class="ans-item-meta">' + escapeHtml(item.time || '') + ' ' + (item.period ? '· ' + escapeHtml(item.period) : '') + '</div>\
         <span class="tag-pill ans-item-tag">' + (item.tag === 'allyear' ? '通年 / All year' : 'ウィンター / Winter') + '</span>\
       </div>';
     });
@@ -69,13 +92,13 @@ function renderAnswer(data) {
   }
 
   if (data.table_rows && data.table_rows.length) {
-    h += '<div class="answer-section"><div class="answer-label">' + (data.table_title || 'Details') + '</div>';
+    h += '<div class="answer-section"><div class="answer-label">' + escapeHtml(data.table_title || 'Details') + '</div>';
     h += '<table class="ans-table"><thead><tr>';
-    (data.table_headers || []).forEach(function(x) { h += '<th>' + x + '</th>'; });
+    (data.table_headers || []).forEach(function(x) { h += '<th>' + escapeHtml(x) + '</th>'; });
     h += '</tr></thead><tbody>';
     data.table_rows.forEach(function(row, i) {
       h += '<tr' + (i % 2 ? ' class="alt"' : '') + '>';
-      Object.values(row).forEach(function(v) { h += '<td>' + (v || '') + '</td>'; });
+      Object.values(row).forEach(function(v) { h += '<td>' + escapeHtml(v || '') + '</td>'; });
       h += '</tr>';
     });
     h += '</tbody></table></div>';
@@ -86,14 +109,14 @@ function renderAnswer(data) {
     var isBuiltin = !!BUILTIN[s.sheet];
     var ud = userDocs.find(function(d) { return d.title === s.sheet; });
     var clickable = isBuiltin || ud;
-    var urlPart = s.url ? '<div class="ref-url">🔗 <a href="' + s.url + '" target="_blank">' + s.url + '</a></div>' : '';
+    var urlPart = s.url ? '<div class="ref-url">🔗 <a href="' + escapeHtml(s.url) + '" target="_blank">' + escapeHtml(s.url) + '</a></div>' : '';
     h += '<div class="source-ref' + (clickable ? '' : ' no-click') + '"' +
-      (isBuiltin ? ' data-builtin-ref="' + s.sheet + '"' : '') +
-      (ud ? ' data-userdoc-ref="' + ud.id + '"' : '') +
+      (isBuiltin ? ' data-builtin-ref="' + escapeHtml(s.sheet) + '"' : '') +
+      (ud ? ' data-userdoc-ref="' + escapeHtml(ud.id) + '"' : '') +
       '>\
       <div class="ref-info">\
         <div class="ref-title">' + I18N[lang].sourceClick + '</div>\
-        <div class="source-ref-desc"><strong>' + s.sheet + '</strong>' + (s.note ? ' · ' + s.note : '') + '</div>\
+        <div class="source-ref-desc"><strong>' + escapeHtml(s.sheet || '') + '</strong>' + (s.note ? ' · ' + escapeHtml(s.note) : '') + '</div>\
         ' + urlPart + '\
       </div>\
       ' + (clickable ? '<div class="open-icon">↗</div>' : '') + '\
