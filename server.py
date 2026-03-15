@@ -109,12 +109,15 @@ def chat():
 def list_docs():
     if not DATABASE_URL:
         return jsonify([])
-    conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute('SELECT * FROM documents ORDER BY created_at DESC')
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute('SELECT * FROM documents ORDER BY created_at DESC')
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception:
+        return jsonify({'error': 'Database connection failed'}), 500
     result = []
     for row in rows:
         doc = dict(row)
@@ -137,28 +140,31 @@ def create_doc():
         return jsonify({'error': 'Invalid request'}), 400
     doc_id = data.get('id', 'doc_' + str(int(time.time() * 1000)))
     tags_json = json.dumps(data.get('tags', []), ensure_ascii=False)
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute('''
-        INSERT INTO documents (id, title, category, tags, source, url, content, summary, type)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (id) DO UPDATE SET
-            title=EXCLUDED.title, category=EXCLUDED.category, tags=EXCLUDED.tags,
-            source=EXCLUDED.source, url=EXCLUDED.url, content=EXCLUDED.content,
-            summary=EXCLUDED.summary, type=EXCLUDED.type
-    ''', (
-        doc_id,
-        data.get('title', ''),
-        data.get('category', 'other'),
-        tags_json,
-        data.get('source', ''),
-        data.get('url', ''),
-        data.get('content', ''),
-        data.get('summary', ''),
-        data.get('type', ''),
-    ))
-    cur.close()
-    conn.close()
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('''
+            INSERT INTO documents (id, title, category, tags, source, url, content, summary, type)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE SET
+                title=EXCLUDED.title, category=EXCLUDED.category, tags=EXCLUDED.tags,
+                source=EXCLUDED.source, url=EXCLUDED.url, content=EXCLUDED.content,
+                summary=EXCLUDED.summary, type=EXCLUDED.type
+        ''', (
+            doc_id,
+            data.get('title', ''),
+            data.get('category', 'other'),
+            tags_json,
+            data.get('source', ''),
+            data.get('url', ''),
+            data.get('content', ''),
+            data.get('summary', ''),
+            data.get('type', ''),
+        ))
+        cur.close()
+        conn.close()
+    except Exception:
+        return jsonify({'error': 'Database write failed'}), 500
     return jsonify({'id': doc_id, 'ok': True})
 
 
@@ -166,11 +172,14 @@ def create_doc():
 def delete_doc(doc_id):
     if not DATABASE_URL:
         return jsonify({'error': 'DATABASE_URL not configured'}), 500
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute('DELETE FROM documents WHERE id = %s', (doc_id,))
-    cur.close()
-    conn.close()
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('DELETE FROM documents WHERE id = %s', (doc_id,))
+        cur.close()
+        conn.close()
+    except Exception:
+        return jsonify({'error': 'Database delete failed'}), 500
     return jsonify({'ok': True})
 
 
