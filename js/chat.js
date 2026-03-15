@@ -15,7 +15,7 @@ function buildSys() {
   return s;
 }
 
-var history = [];
+var chatHistory = [];
 
 async function callChatAPI(messages, system) {
   var res = await fetch(CONFIG.API_ENDPOINT, {
@@ -36,10 +36,10 @@ async function sendMessage(text) {
   input.value = ''; appendUser(msg);
   var tid = showThinking();
   el('sendBtn').disabled = true;
-  history.push({ role: 'user', content: msg });
+  chatHistory.push({ role: 'user', content: msg });
   try {
-    var result = await callChatAPI(history, buildSys());
-    history.push({ role: 'assistant', content: result.raw });
+    var result = await callChatAPI(chatHistory, buildSys());
+    chatHistory.push({ role: 'assistant', content: result.raw });
     hideThinking(tid); renderAnswer(result.parsed);
   } catch (e) { hideThinking(tid); appendUser('Error. Please try again.'); }
   el('sendBtn').disabled = false;

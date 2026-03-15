@@ -7,6 +7,7 @@ A single-page hotel staff knowledge base and chat interface for LOTTE ARAI RESOR
 - `hotel_kb_chat.html` — Main HTML markup (no inline CSS or JS)
 - `index.html` — Redirect page that forwards root URL to the main app
 - `style.css` — All application styles
+- `server.py` — Flask backend serving static files and proxying AI requests to Google Gemini
 - `js/config.js` — API endpoint and model configuration constants
 - `js/utils.js` — DOM helper functions (el, showModal, hideModal, setDisplay)
 - `js/i18n.js` — Multilingual dictionary (JP/EN/KR) and language switcher
@@ -19,18 +20,24 @@ A single-page hotel staff knowledge base and chat interface for LOTTE ARAI RESOR
 - `js/app.js` — Application initialization and event listener registration
 
 ## Tech Stack
-- Pure HTML/CSS/JavaScript (no build step required)
+- Pure HTML/CSS/JavaScript frontend (no build step required)
+- Flask (Python) backend for API proxying
+- Google Gemini API (gemini-2.0-flash) for AI features
 - Uses XLSX.js (via CDN) for Excel file parsing
 - Google Fonts for typography (Cormorant Garamond, Noto Sans JP)
-- Entirely client-side — no backend or server-side logic
-- AI features powered by Claude via external proxy endpoint
+
+## Environment Variables
+- `GEMINI_API_KEY` — Google Gemini API key (required, stored as Replit secret)
 
 ## Running the App
-The app is served via Python's built-in HTTP server:
+The app is served via Flask:
 ```
-python3 -m http.server 5000 --directory .
+python3 server.py
 ```
 Access at: `http://localhost:5000`
+
+## API Endpoints
+- `POST /api/chat` — Proxies AI requests to Google Gemini. Accepts `{messages, system, max_tokens}`, returns `{content: [{text: "..."}]}` (Claude-compatible format for frontend compatibility).
 
 ## Features
 - Multilingual chat interface (JP/EN/KR)

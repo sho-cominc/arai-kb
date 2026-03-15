@@ -11,15 +11,31 @@ if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
 
+def error_response(message):
+    payload = json.dumps({
+        'answer': message,
+        'items': [],
+        'table_rows': [],
+        'source': None
+    })
+    return jsonify({'content': [{'text': payload}]})
+
+
 @app.route('/api/chat', methods=['POST'])
 def chat():
     if not GEMINI_API_KEY:
-        return jsonify({'content': [{'text': '{"answer":"GEMINI_API_KEY が設定されていません。Replitの環境変数に設定してください。","items":[],"table_rows":[],"source":null}'}]}), 200
+        return error_response('GEMINI_API_KEY が設定されていません。Replitの環境変数に設定してください。')
 
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not data or not isinstance(data, dict):
+        return error_response('リクエストが不正です。'), 400
+
     messages = data.get('messages', [])
+    if not isinstance(messages, list) or not messages:
+        return error_response('メッセージが空です。'), 400
+
     system = data.get('system', '')
-    max_tokens = data.get('max_tokens', 1000)
+    max_tokens = min(int(data.get('max_tokens', 1000)), 4096)
 
     try:
         model = genai.GenerativeModel(
@@ -29,16 +45,12 @@ def chat():
 
         gemini_history = []
         for msg in messages[:-1]:
-            role = 'user' if msg['role'] == 'user' else 'model'
-            gemini_history.append({'role': role, 'parts': [msg['content']]})
+            role = 'user' if msg.get('role') == 'user' else 'model'
+            gemini_history.append({'role': role, 'parts': [msg.get('content', '')]})
 
         chat_session = model.start_chat(history=gemini_history)
 
-        last_msg = messages[-1]['content'] if messages else ''
-        if not system and last_msg:
-            pass
-        elif system and not messages:
-            last_msg = system
+        last_msg = messages[-1].get('content', '')
 
         response = chat_session.send_message(
             last_msg,
@@ -51,14 +63,8 @@ def chat():
 
         return jsonify({'content': [{'text': text}]})
 
-    except Exception as e:
-        error_text = json.dumps({
-            'answer': 'AI Error: ' + str(e),
-            'items': [],
-            'table_rows': [],
-            'source': None
-        })
-        return jsonify({'content': [{'text': error_text}]}), 200
+    except Exception:
+        return error_response('AIの応答中にエラーが発生しました。しばらく待ってからもう一度お試しください。')
 
 
 @app.route('/')
