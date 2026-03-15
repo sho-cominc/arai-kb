@@ -339,7 +339,7 @@ header{padding:11px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;
             <div class="tc-label" id="tcTagsLabel">タグ（複数可）</div>
             <div class="tag-chips" id="tagChips"></div>
             <div class="tag-add-row">
-              <input class="tag-add-input" id="tagAddInput" placeholder="タグを追加..." onkeydown="if(event.key==='Enter')addTag()" />
+              <input class="tag-add-input" id="tagAddInput" placeholder="タグを追加..." />
               <button class="tag-add-btn" onclick="addTag()">＋</button>
             </div>
           </div>
@@ -782,9 +782,8 @@ function addTag() {
   input.value='';
 }
 
-function saveFromConfirm() {
-  if(!pendingDoc) return;
-  const doc = {
+function createDocFromForm() {
+  return {
     id: 'doc_'+Date.now(),
     title: el('tcTitle').value.trim()||pendingDoc.filename,
     category: el('tcCategory').value,
@@ -795,6 +794,11 @@ function saveFromConfirm() {
     summary: pendingDoc.summary,
     type: pendingDoc.type,
   };
+}
+
+function saveFromConfirm() {
+  if(!pendingDoc) return;
+  const doc = createDocFromForm();
   userDocs.push(doc);
   pendingDoc=null; pendingTags=[];
   hideModal('tagConfirm');
@@ -910,6 +914,19 @@ function buildSys(){
 
 let history=[];
 
+async function callChatAPI(messages, system) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514', max_tokens:1000, system, messages})
+  });
+  const data = await res.json();
+  const raw = data.content?.[0]?.text || '{}';
+  let parsed;
+  try { parsed = JSON.parse(raw.replace(/```json|```/g,'').trim()); }
+  catch { parsed = {answer:raw, items:[], table_rows:[], source:null}; }
+  return {raw, parsed};
+}
+
 async function sendMessage(text){
   const input=el('userInput');
   const msg=text||input.value.trim(); if(!msg) return;
@@ -918,15 +935,9 @@ async function sendMessage(text){
   el('sendBtn').disabled=true;
   history.push({role:'user',content:msg});
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildSys(),messages:history})
-    });
-    const data=await res.json();
-    const raw=data.content?.[0]?.text||'{}';
-    let p; try{p=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch{p={answer:raw,items:[],table_rows:[],source:null};}
+    const {raw, parsed} = await callChatAPI(history, buildSys());
     history.push({role:'assistant',content:raw});
-    hideThinking(tid); renderAnswer(p);
+    hideThinking(tid); renderAnswer(parsed);
   }catch(e){hideThinking(tid);appendUser('Error. Please try again.');}
   el('sendBtn').disabled=false;
 }
@@ -1001,6 +1012,9 @@ function renderAnswer(data){
 
 el('userInput').addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}
+});
+el('tagAddInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter') addTag();
 });
 </script>
 </body>
