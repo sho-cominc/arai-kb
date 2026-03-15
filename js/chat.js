@@ -1,4 +1,4 @@
-var BASE_SYS = 'You are the staff knowledge base assistant for LOTTE ARAI RESORT, a luxury ski resort in Myoko, Niigata, Japan.\n\nIMPORTANT: Always respond in the SAME language the user writes in.\n- If user writes in Japanese → respond in Japanese\n- If user writes in English → respond in English\n- If user writes in Korean → respond in Korean\n\nAlways cite your data source. Return ONLY this JSON (no backticks):\n{"answer":"your answer","items":[{"name":"","price_adult":"","price_child":"","time":"","period":"","tag":"winter|allyear"}],"table_title":"","table_headers":[],"table_rows":[],"source":{"sheet":"source name","note":"note","url":""}}\n\nitems and table_rows are [] when not needed.\n\nBUILT-IN DATA:\n■Overview sheet (prices incl. tax):\nPasses: Snow Play Pass ¥2,500/¥2,000 · Happy Pass ¥5,000/¥4,000 · Tanoshii Pass ¥16,000/¥13,000\nSingles: 1.SpongeBob ¥1,000 2.Strider ¥1,000 3.Snow Slope ¥1,500 4.Snow Tubing ¥2,200/¥1,700 5.Zipline ¥2,200/¥1,700 6.Playground ¥2,200/¥1,700 7.Snow Rafting ¥2,500 8.Starry Onsen ¥1,300/¥800 9.Starry Pool ¥2,000/¥1,500 10.Zip Tour ¥8,000/¥6,500 11.Snow Drive Tour ¥5,500/¥4,500\n■Discount sheet: A≈10%OFF B≈20%OFF C≈30%OFF D≈50%OFF(staff) E=special\n■Q&A sheet: Hours 10-17/reception 9-16 · Day visitors OK · Bad weather(warning/lightning/wind>10m/s→cancel) · Cancel policy(free until day before/50% day-of before/100% day-of after) · Reservation required for Zip Tour/Snow Drive/Snow Rafting · Ext.1454';
+var BASE_SYS = 'You are the staff knowledge base assistant for LOTTE ARAI RESORT, a luxury ski resort in Myoko, Niigata, Japan.\n\nIMPORTANT: Always respond in the SAME language the user writes in.\n- If user writes in Japanese → respond in Japanese\n- If user writes in English → respond in English\n- If user writes in Korean → respond in Korean\n\nAlways cite your data source. Return ONLY this JSON (no backticks):\n{"answer":"your answer","items":[{"name":"","price_adult":"","price_child":"","time":"","period":"","tag":"winter|allyear"}],"table_title":"","table_headers":[],"table_rows":[],"source":{"sheet":"source name","note":"note","url":""}}\n\nitems and table_rows are [] when not needed.\nFor source.sheet, use EXACTLY one of these names: 概要, 料金区分, Q&A (for built-in data), or the registered document title.\n\nBUILT-IN DATA:\n■概要 sheet (prices incl. tax):\nPasses: Snow Play Pass ¥2,500/¥2,000 · Happy Pass ¥5,000/¥4,000 · Tanoshii Pass ¥16,000/¥13,000\nSingles: 1.SpongeBob ¥1,000 2.Strider ¥1,000 3.Snow Slope ¥1,500 4.Snow Tubing ¥2,200/¥1,700 5.Zipline ¥2,200/¥1,700 6.Playground ¥2,200/¥1,700 7.Snow Rafting ¥2,500 8.Starry Onsen ¥1,300/¥800 9.Starry Pool ¥2,000/¥1,500 10.Zip Tour ¥8,000/¥6,500 11.Snow Drive Tour ¥5,500/¥4,500\n■料金区分 sheet: A≈10%OFF B≈20%OFF C≈30%OFF D≈50%OFF(staff) E=special\n■Q&A sheet: Hours 10-17/reception 9-16 · Day visitors OK · Bad weather(warning/lightning/wind>10m/s→cancel) · Cancel policy(free until day before/50% day-of before/100% day-of after) · Reservation required for Zip Tour/Snow Drive/Snow Rafting · Ext.1454';
 
 function buildSys() {
   var s = BASE_SYS;
@@ -17,19 +17,6 @@ function buildSys() {
 
 var chatHistory = [];
 
-async function callChatAPI(messages, system) {
-  var res = await fetch(CONFIG.API_ENDPOINT, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: CONFIG.AI_MODEL, max_tokens: CONFIG.CHAT_MAX_TOKENS, system: system, messages: messages })
-  });
-  var data = await res.json();
-  var raw = data.content && data.content[0] && data.content[0].text || '{}';
-  var parsed;
-  try { parsed = JSON.parse(raw.replace(/```json|```/g, '').trim()); }
-  catch (e) { parsed = { answer: raw, items: [], table_rows: [], source: null }; }
-  return { raw: raw, parsed: parsed };
-}
-
 async function sendMessage(text) {
   var input = el('userInput');
   var msg = text || input.value.trim(); if (!msg) return;
@@ -38,9 +25,10 @@ async function sendMessage(text) {
   el('sendBtn').disabled = true;
   chatHistory.push({ role: 'user', content: msg });
   try {
-    var result = await callChatAPI(chatHistory, buildSys());
+    var result = await callAI(chatHistory, buildSys(), CONFIG.CHAT_MAX_TOKENS);
     chatHistory.push({ role: 'assistant', content: result.raw });
-    hideThinking(tid); renderAnswer(result.parsed);
+    var parsed = result.parsed || { answer: result.raw, items: [], table_rows: [], source: null };
+    hideThinking(tid); renderAnswer(parsed);
   } catch (e) { hideThinking(tid); appendUser('Error. Please try again.'); }
   el('sendBtn').disabled = false;
 }
@@ -48,22 +36,22 @@ async function sendMessage(text) {
 function askQuick(t) { el('userInput').value = t; sendMessage(t); }
 
 function appendUser(text) {
-  var m = el('messages'), d = document.createElement('div');
+  var d = document.createElement('div');
   d.className = 'message user';
   d.innerHTML = '<div class="avatar user">S</div><div class="bubble">' + text + '</div>';
-  m.appendChild(d); m.scrollTop = m.scrollHeight;
+  appendToMessages(d);
 }
 
 function showThinking() {
-  var m = el('messages'), id = 't' + Date.now(), d = document.createElement('div');
+  var id = 't' + Date.now(), d = document.createElement('div');
   d.className = 'message ai'; d.id = id;
   d.innerHTML = '<div class="avatar ai">L</div><div class="bubble"><div class="thinking"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>';
-  m.appendChild(d); m.scrollTop = m.scrollHeight; return id;
+  appendToMessages(d); return id;
 }
 function hideThinking(id) { var e = el(id); if (e) e.remove(); }
 
 function renderAnswer(data) {
-  var m = el('messages'), d = document.createElement('div');
+  var d = document.createElement('div');
   d.className = 'message ai';
   var h = '<div class="avatar ai">L</div><div class="bubble"><div>' + (data.answer || '').replace(/\n/g, '<br>') + '</div>';
 
@@ -112,5 +100,5 @@ function renderAnswer(data) {
     </div>';
   }
 
-  h += '</div>'; d.innerHTML = h; m.appendChild(d); m.scrollTop = m.scrollHeight;
+  h += '</div>'; d.innerHTML = h; appendToMessages(d);
 }

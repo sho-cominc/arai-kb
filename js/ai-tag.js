@@ -1,26 +1,19 @@
 var pendingDoc = null;
 var pendingTags = [];
 
+function clearPending() {
+  pendingDoc = null;
+  pendingTags = [];
+}
+
 async function aiTagFile(filename, type, content) {
   showAiProc(filename);
   var preview = content.slice(0, 1500);
   var prompt = 'You are an AI assistant for a hotel knowledge base called "LOTTE ARAI RESORT".\n\nA staff member just uploaded a file. Read the content and respond ONLY with this JSON (no backticks):\n{\n  "title": "短いわかりやすいタイトル（日本語OK、30文字以内）",\n  "category": "one of: activities | rooms | rates | facilities | faq | tourism | operations | other",\n  "tags": ["tag1","tag2","tag3"],\n  "summary": "2〜3文の日本語要約"\n}\n\nTags should be short keywords (Japanese or English), 3-6 tags, reflecting the content well.\n\nFilename: ' + filename + '\nType: ' + type + '\nContent preview:\n' + preview;
 
   try {
-    var res = await fetch(CONFIG.API_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: CONFIG.AI_MODEL,
-        max_tokens: CONFIG.TAG_MAX_TOKENS,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    var data = await res.json();
-    var raw = data.content && data.content[0] && data.content[0].text || '{}';
-    var parsed;
-    try { parsed = JSON.parse(raw.replace(/```json|```/g, '').trim()); }
-    catch (e) { parsed = { title: filename, category: 'other', tags: [], summary: '' }; }
+    var result = await callAI([{ role: 'user', content: prompt }], '', CONFIG.TAG_MAX_TOKENS);
+    var parsed = result.parsed || { title: filename, category: 'other', tags: [], summary: '' };
     openTagConfirm(filename, type, content, parsed);
   } catch (e) {
     openTagConfirm(filename, type, content, {});
@@ -72,14 +65,14 @@ function saveFromConfirm() {
   if (!pendingDoc) return;
   var doc = createDocFromForm();
   userDocs.push(doc);
-  pendingDoc = null; pendingTags = [];
+  clearPending();
   hideModal('tagConfirm');
   renderList();
   viewDoc(doc.id);
 }
 
 function cancelConfirm() {
-  pendingDoc = null; pendingTags = [];
+  clearPending();
   hideModal('tagConfirm');
 }
 
