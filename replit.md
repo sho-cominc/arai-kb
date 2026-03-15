@@ -7,7 +7,7 @@ A single-page hotel staff knowledge base and chat interface for LOTTE ARAI RESOR
 - `hotel_kb_chat.html` — Main HTML markup (no inline CSS or JS)
 - `index.html` — Redirect page that forwards root URL to the main app
 - `style.css` — All application styles
-- `server.py` — Flask backend serving static files, proxying AI requests to Google Gemini, and document CRUD API (PostgreSQL)
+- `server.py` — Flask backend serving static files, proxying AI requests to Google Gemini, and document CRUD API (Firestore)
 - `js/config.js` — API endpoint and model configuration constants
 - `js/utils.js` — DOM helper functions (el, showModal, hideModal, setDisplay)
 - `js/i18n.js` — Multilingual dictionary (JP/EN/KR) and language switcher
@@ -22,15 +22,15 @@ A single-page hotel staff knowledge base and chat interface for LOTTE ARAI RESOR
 ## Tech Stack
 - Pure HTML/CSS/JavaScript frontend (no build step required)
 - Flask (Python) backend for API proxying and document CRUD
-- PostgreSQL (Replit built-in) for document persistence
+- Google Cloud Firestore for document persistence (hosting-independent)
 - Google Gemini API (gemini-2.5-flash) for AI features
-- psycopg2-binary for PostgreSQL connectivity
+- google-cloud-firestore SDK for Firestore connectivity
 - Uses XLSX.js (via CDN) for Excel file parsing
 - Google Fonts for typography (Cormorant Garamond, Noto Sans JP)
 
 ## Environment Variables
-- `GEMINI_API_KEY` — Google Gemini API key (required, stored as Replit secret)
-- `DATABASE_URL` — PostgreSQL connection string (auto-set by Replit)
+- `GEMINI_API_KEY` — Google Gemini API key (required)
+- `FIREBASE_CREDENTIALS` — Firebase service account JSON string (required for document persistence)
 
 ## Running the App
 The app is served via Flask:
@@ -41,7 +41,7 @@ Access at: `http://localhost:5000`
 
 ## API Endpoints
 - `POST /api/chat` — Proxies AI requests to Google Gemini. Accepts `{messages, system, max_tokens}`, returns `{content: [{text: "..."}]}` (Claude-compatible format for frontend compatibility).
-- `GET /api/docs` — Returns all documents from PostgreSQL as JSON array (tags parsed from JSON string to array).
+- `GET /api/docs` — Returns all documents from Firestore as JSON array (ordered by created_at DESC).
 - `POST /api/docs` — Creates/upserts a document. Accepts `{id, title, category, tags, source, url, content, summary, type}`.
 - `DELETE /api/docs/<id>` — Deletes a document by ID.
 
