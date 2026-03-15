@@ -91,7 +91,7 @@ def chat():
 @app.route('/api/docs', methods=['GET'])
 def list_docs():
     if not firestore_db:
-        return jsonify([])
+        return jsonify({'error': 'FIREBASE_CREDENTIALS not configured'}), 500
     try:
         docs_ref = firestore_db.collection('documents').order_by('created_at', direction='DESCENDING')
         result = []
