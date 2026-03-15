@@ -4,231 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LOTTE ARAI RESORT — Staff Knowledge Base</title>
+<link rel="stylesheet" href="style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Noto+Sans+JP:wght@300;400;500&display=swap');
-:root {
-  --ink:#1a1a1a; --paper:#f5f2ed; --snow:#fff;
-  --accent:#2d5a8e; --accent-light:#e8f0fa; --gold:#c4963a;
-  --muted:#8a8580; --border:#ddd8d0; --success:#2e7d52; --danger:#c0392b;
-}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Noto Sans JP',sans-serif;background:var(--paper);color:var(--ink);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
-
-/* ── Grouped: border:1px solid var(--border) ── */
-.sidebar,.dm-list,.dm-list-header,.dm-item,.doc-content-preview,
-.modal-header,.modal-tabs,.quick-btn,.bubble,.input-area,.doc-actions,
-.dm-item-del:hover,.tag-add-input,.tag-chip,.tc-cancel,.del-btn-doc,
-.sheet-table td,.sheet-selector select,.tc-title-input,.cat-select,.url-input {
-  border:1px solid var(--border);
-}
-
-/* ── Grouped: border-radius:6px ── */
-.quick-btn,.nav-btn,.tag-add-btn,.tc-save,.tc-cancel,.del-btn-doc,
-.tag-add-input,.tc-title-input,.cat-select,.url-input,.sheet-selector select {
-  border-radius:6px;
-}
-
-/* ── Grouped: background:var(--ink);color:var(--snow) ── */
-header,.sheet-table th,.section-header td {
-  background:var(--ink);color:var(--snow);
-}
-
-/* HEADER */
-header{padding:11px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
-.logo{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;letter-spacing:.12em;}
-.logo span{color:var(--gold);font-weight:600;}
-.header-right{display:flex;gap:6px;align-items:center;margin-left:auto;}
-.nav-btn{background:none;border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:5px 12px;font-size:12px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;transition:all .15s;}
-.nav-btn:hover{background:rgba(255,255,255,.12);color:#fff;}
-.nav-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-.lang-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:rgba(255,255,255,.85);padding:4px 10px;border-radius:5px;font-size:11px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;transition:all .15s;letter-spacing:.05em;}
-.lang-btn:hover,.lang-btn.active{background:var(--gold);border-color:var(--gold);color:#fff;}
-
-/* LAYOUT */
-.main{display:flex;flex:1;overflow:hidden;}
-.sidebar{width:200px;background:var(--snow);padding:12px 0;flex-shrink:0;overflow-y:auto;border-right-width:1px;}
-.sidebar-section{padding:0 12px;margin-bottom:16px;}
-.sidebar-label{font-size:9px;letter-spacing:.15em;color:var(--muted);text-transform:uppercase;margin-bottom:6px;}
-.quick-btn{display:block;width:100%;text-align:left;background:none;padding:6px 9px;font-size:11px;font-family:'Noto Sans JP',sans-serif;color:var(--ink);cursor:pointer;margin-bottom:4px;transition:all .15s;line-height:1.4;}
-.quick-btn:hover{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
-
-/* VIEWS */
-.view{display:none;flex:1;flex-direction:column;overflow:hidden;}
-.view.active{display:flex;}
-
-/* CHAT */
-.messages{flex:1;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:13px;}
-.message{display:flex;gap:10px;max-width:840px;animation:fadeUp .2s ease;}
-@keyframes fadeUp{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
-.message.user{align-self:flex-end;flex-direction:row-reverse;}
-.avatar{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
-.avatar.ai{background:var(--ink);color:var(--gold);font-family:'Cormorant Garamond',serif;font-size:14px;}
-.avatar.user{background:var(--accent);color:#fff;font-size:10px;}
-.bubble{background:var(--snow);border-radius:12px;padding:11px 15px;font-size:13px;line-height:1.75;max-width:680px;}
-.message.user .bubble{background:var(--accent);color:#fff;border-color:var(--accent);}
-.answer-section{margin-top:11px;}
-.answer-label{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
-.source-ref{background:var(--accent-light);border:1px solid var(--accent);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;margin-top:9px;font-size:12px;cursor:pointer;transition:background .15s;display:flex;align-items:flex-start;gap:9px;}
-.source-ref:hover{background:#d0e3f7;}
-.source-ref .ref-info{flex:1;}
-.source-ref .ref-title{font-weight:500;color:var(--accent);font-size:11px;margin-bottom:2px;}
-.source-ref .ref-url a{color:var(--accent);font-size:11px;text-decoration:none;word-break:break-all;}
-.source-ref .ref-url a:hover{text-decoration:underline;}
-.source-ref .open-icon{font-size:15px;color:var(--accent);flex-shrink:0;}
-.tag-list{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
-.tag-pill{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;background:var(--accent-light);color:var(--accent);font-weight:500;}
-.tag-pill.cat{background:#f0f7ee;color:var(--success);}
-.input-area{padding:12px 18px;background:var(--snow);border-top-width:1px;flex-shrink:0;}
-.input-row{display:flex;gap:7px;align-items:center;background:var(--paper);border:1.5px solid var(--border);border-radius:10px;padding:7px 10px;transition:border-color .2s;}
-.input-row:focus-within{border-color:var(--accent);}
-#userInput{flex:1;background:none;border:none;outline:none;font-family:'Noto Sans JP',sans-serif;font-size:13px;color:var(--ink);}
-#userInput::placeholder{color:var(--muted);}
-#sendBtn{background:var(--ink);color:var(--snow);border:none;border-radius:7px;padding:6px 13px;font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;}
-#sendBtn:hover{background:var(--accent);}
-#sendBtn:disabled{background:var(--muted);cursor:not-allowed;}
-.thinking{display:flex;gap:5px;padding:4px 0;}
-.dot{width:6px;height:6px;background:var(--muted);border-radius:50%;animation:bounce 1.2s infinite;}
-.dot:nth-child(2){animation-delay:.2s;}.dot:nth-child(3){animation-delay:.4s;}
-@keyframes bounce{0%,60%,100%{transform:translateY(0);}30%{transform:translateY(-5px);}}
-.welcome{text-align:center;padding:40px 20px;color:var(--muted);}
-.welcome h2{font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--ink);font-weight:300;margin-bottom:6px;}
-.welcome p{font-size:12px;line-height:1.9;}
-
-/* DATA MANAGER */
-.data-manager{flex:1;display:flex;overflow:hidden;}
-.dm-list{width:270px;display:flex;flex-direction:column;background:var(--snow);border-right-width:1px;}
-.dm-list-header{padding:12px 14px;border-bottom-width:1px;display:flex;align-items:center;gap:7px;}
-.dm-list-header h3{font-size:13px;font-weight:500;flex:1;}
-
-/* DROP ZONE */
-.drop-zone{border:2px dashed var(--border);border-radius:10px;padding:22px 16px;text-align:center;cursor:pointer;transition:all .2s;background:var(--paper);margin:12px;flex-shrink:0;}
-.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:var(--accent-light);}
-.drop-zone .dz-icon{font-size:28px;margin-bottom:6px;}
-.drop-zone .dz-text{font-size:12px;color:var(--muted);line-height:1.7;}
-.drop-zone .dz-text strong{color:var(--accent);}
-.drop-zone .dz-types{font-size:10px;color:var(--muted);margin-top:5px;letter-spacing:.05em;}
-.drop-zone input[type=file]{display:none;}
-
-/* AI PROCESSING OVERLAY */
-.ai-processing{margin:0 12px 8px;background:linear-gradient(135deg,var(--accent-light),#f0f7ee);border:1px solid var(--accent);border-radius:8px;padding:12px 14px;display:none;}
-.ai-processing.show{display:block;}
-.ai-proc-title{font-size:11px;font-weight:500;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
-.ai-proc-spinner{width:12px;height:12px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
-@keyframes spin{to{transform:rotate(360deg);}}
-
-/* TAG CONFIRM PANEL */
-.tag-confirm{margin:0 12px 8px;background:var(--snow);border-radius:8px;padding:14px;display:none;flex-direction:column;gap:10px;}
-.tag-confirm.show{display:flex;}
-.tc-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
-.tc-title-input{border-width:1.5px;padding:6px 10px;font-family:'Noto Sans JP',sans-serif;font-size:13px;color:var(--ink);background:var(--snow);outline:none;width:100%;}
-.tc-title-input:focus{border-color:var(--accent);}
-.tag-chips{display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
-.tag-chip{display:inline-flex;align-items:center;gap:4px;background:var(--accent-light);color:var(--accent);border-color:#b8d0ec;border-radius:20px;padding:3px 9px;font-size:11px;font-weight:500;}
-.tag-chip .remove-tag{background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;line-height:1;padding:0 0 0 2px;opacity:.7;}
-.tag-chip .remove-tag:hover{opacity:1;}
-.tag-add-row{display:flex;gap:5px;margin-top:6px;}
-.tag-add-input{flex:1;padding:5px 8px;font-family:'Noto Sans JP',sans-serif;font-size:12px;outline:none;}
-.tag-add-input:focus{border-color:var(--accent);}
-.tag-add-btn{background:var(--accent);color:#fff;border:none;padding:5px 10px;font-size:11px;cursor:pointer;}
-.cat-select{border-width:1.5px;padding:6px 10px;font-family:'Noto Sans JP',sans-serif;font-size:12px;color:var(--ink);background:var(--snow);outline:none;width:100%;}
-.url-input{border-width:1.5px;padding:6px 10px;font-family:'Noto Sans JP',sans-serif;font-size:12px;color:var(--ink);background:var(--snow);outline:none;width:100%;}
-.url-input:focus{border-color:var(--accent);}
-.tc-actions{display:flex;gap:7px;}
-.tc-save{background:var(--accent);color:#fff;border:none;padding:8px 16px;font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;flex:1;}
-.tc-save:hover{background:#245080;}
-.tc-cancel{background:none;padding:8px 12px;font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;color:var(--muted);}
-
-/* SHEET SELECTOR */
-.sheet-selector{margin:0 12px 8px;display:none;}
-.sheet-selector.show{display:block;}
-.sheet-selector label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px;}
-.sheet-selector select{width:100%;border-width:1.5px;padding:7px 10px;font-family:'Noto Sans JP',sans-serif;font-size:12px;outline:none;}
-
-.dm-items{flex:1;overflow-y:auto;}
-.dm-item{padding:10px 13px;cursor:pointer;transition:background .12s;display:flex;align-items:flex-start;gap:8px;border-bottom-width:1px;}
-.dm-item:hover{background:var(--paper);}
-.dm-item.active{background:var(--accent-light);border-left:3px solid var(--accent);padding-left:10px;}
-.dm-item-icon{font-size:16px;flex-shrink:0;}
-.dm-item-info{flex:1;min-width:0;}
-.dm-item-title{font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dm-item-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;}
-.dm-item-tag{font-size:10px;padding:1px 6px;border-radius:10px;background:var(--accent-light);color:var(--accent);}
-.dm-item-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:2px 4px;border-radius:4px;}
-.dm-item-del:hover{background:#fde8e8;color:var(--danger);}
-.dm-empty{padding:28px 14px;text-align:center;color:var(--muted);font-size:12px;line-height:1.9;}
-
-/* DOCUMENT VIEWER */
-.dm-viewer{flex:1;display:flex;flex-direction:column;overflow:hidden;}
-.dm-viewer-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;flex-direction:column;gap:10px;}
-.doc-detail{flex:1;overflow-y:auto;padding:20px;}
-.doc-detail-header{margin-bottom:16px;}
-.doc-title{font-size:17px;font-weight:500;margin-bottom:8px;}
-.doc-meta-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;}
-.doc-source{font-size:11px;color:var(--muted);}
-.doc-url a{font-size:11px;color:var(--accent);text-decoration:none;}
-.doc-url a:hover{text-decoration:underline;}
-.doc-content-preview{background:var(--paper);border-radius:8px;padding:14px;font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-x:auto;max-height:400px;overflow-y:auto;}
-.doc-actions{display:flex;gap:7px;padding:14px 20px;border-top-width:1px;background:var(--snow);flex-shrink:0;}
-.del-btn-doc{background:none;border-color:var(--danger);padding:7px 14px;color:var(--danger);font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;}
-
-/* MODAL */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center;}
-.modal-overlay.active{display:flex;}
-.modal{background:var(--snow);border-radius:12px;width:90vw;max-width:980px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);animation:modalIn .18s ease;}
-@keyframes modalIn{from{opacity:0;transform:scale(.96);}to{opacity:1;transform:scale(1);}}
-.modal-header{padding:13px 17px;border-bottom-width:1px;display:flex;align-items:center;gap:9px;flex-shrink:0;}
-.modal-title{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:400;flex:1;}
-.modal-sub{font-size:11px;color:var(--muted);}
-.modal-close{background:none;border:none;font-size:17px;cursor:pointer;color:var(--muted);padding:4px 7px;border-radius:4px;}
-.modal-close:hover{background:var(--paper);color:var(--ink);}
-.modal-tabs{display:flex;padding:0 17px;border-bottom-width:1px;flex-shrink:0;gap:2px;overflow-x:auto;}
-.modal-tab{padding:8px 13px;font-size:12px;cursor:pointer;border-bottom:2px solid transparent;color:var(--muted);white-space:nowrap;}
-.modal-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:500;}
-.modal-body{flex:1;overflow:auto;padding:16px;}
-.sheet-content{display:none;}
-.sheet-content.active{display:block;}
-.sheet-note{background:var(--accent-light);border-left:3px solid var(--accent);padding:8px 12px;font-size:12px;margin-bottom:12px;border-radius:0 6px 6px 0;line-height:1.6;}
-.sheet-url-bar{background:#fef6e4;border-left:3px solid var(--gold);padding:8px 12px;font-size:12px;margin-bottom:10px;border-radius:0 6px 6px 0;}
-.sheet-url-bar a{color:var(--accent);text-decoration:none;word-break:break-all;}
-.sheet-table{width:100%;border-collapse:collapse;font-size:12px;}
-.sheet-table th{padding:6px 9px;text-align:left;font-weight:400;position:sticky;top:0;white-space:nowrap;}
-.sheet-table td{padding:6px 9px;border-bottom-width:1px;vertical-align:top;line-height:1.5;}
-.sheet-table tr:nth-child(even) td{background:var(--paper);}
-.sheet-table tr:hover td{background:var(--accent-light);}
-.section-header td{font-weight:500;}
-.highlight-row td{background:#fff8e6!important;}
-.md-pre{font-size:13px;line-height:1.8;white-space:pre-wrap;font-family:'Noto Sans JP',sans-serif;}
-
-/* Answer item cards (used in renderAnswer) */
-.ans-item-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;}
-.ans-item-card{background:var(--paper);border:1px solid var(--border);border-radius:7px;padding:8px 10px;}
-.ans-item-name{font-size:12px;font-weight:500;margin-bottom:2px;}
-.ans-item-price{font-size:12px;color:var(--accent);font-weight:500;}
-.ans-item-meta{font-size:11px;color:var(--muted);margin-top:2px;}
-.ans-item-tag{margin-top:4px;}
-/* Answer inline table */
-.ans-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:5px;}
-.ans-table th{background:var(--ink);color:var(--snow);padding:5px 9px;text-align:left;font-weight:400;}
-.ans-table td{padding:5px 9px;border-bottom:1px solid var(--border);}
-.ans-table tr.alt td{background:var(--paper);}
-/* Source ref no-click variant */
-.source-ref.no-click{cursor:default;}
-/* Source ref inline desc */
-.source-ref-desc{color:var(--ink);line-height:1.6;font-size:12px;}
-
-::-webkit-scrollbar{width:5px;}
-::-webkit-scrollbar-track{background:transparent;}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;}
-
-/* ── Extracted from inline styles ── */
-#headerSub{font-size:11px;color:#888;margin-left:4px;}
-.header-divider{width:1px;height:20px;background:rgba(255,255,255,.2);margin:0 4px;}
-#aiProcFile{font-size:11px;color:var(--muted);}
-.viewer-empty-icon{font-size:36px;}
-#dmViewerEmptyText{text-align:center;}
-.welcome-hint{font-size:11px;color:#bbb;}
-</style>
 </head>
 <body>
 
@@ -236,38 +13,36 @@ header{padding:11px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;
   <div class="logo"><span>LOTTE</span> ARAI RESORT</div>
   <div id="headerSub">Staff Knowledge Base</div>
   <div class="header-right">
-    <button class="lang-btn active" id="langJA" onclick="setLang('ja')">日本語</button>
-    <button class="lang-btn" id="langEN" onclick="setLang('en')">EN</button>
-    <button class="lang-btn" id="langKO" onclick="setLang('ko')">한국어</button>
+    <button class="lang-btn active" id="langJA">日本語</button>
+    <button class="lang-btn" id="langEN">EN</button>
+    <button class="lang-btn" id="langKO">한국어</button>
     <div class="header-divider"></div>
-    <button class="nav-btn active" id="btn-chat" onclick="switchView('chat')" data-ja="💬 チャット" data-en="💬 Chat" data-ko="💬 채팅">💬 チャット</button>
-    <button class="nav-btn" id="btn-data" onclick="switchView('data')" data-ja="📁 データ管理" data-en="📁 Data" data-ko="📁 데이터">📁 データ管理</button>
+    <button class="nav-btn active" id="btn-chat" data-ja="💬 チャット" data-en="💬 Chat" data-ko="💬 채팅">💬 チャット</button>
+    <button class="nav-btn" id="btn-data" data-ja="📁 データ管理" data-en="📁 Data" data-ko="📁 데이터">📁 データ管理</button>
   </div>
 </header>
 
 <div class="main">
-  <!-- SIDEBAR -->
   <div class="sidebar">
     <div class="sidebar-section">
       <div class="sidebar-label" data-i18n="quickQ">クイック質問</div>
-      <button class="quick-btn" onclick="askQuick('今やっているアクティビティは何ですか？')">🎿 アクティビティ一覧</button>
-      <button class="quick-btn" onclick="askQuick('スノーチュービングの料金と制限を教えて')">💰 スノーチュービング</button>
-      <button class="quick-btn" onclick="askQuick('星空温泉の営業時間は？')">♨️ 星空温泉</button>
-      <button class="quick-btn" onclick="askQuick('悪天候のときアクティビティはどうなる？')">🌨️ 悪天候対応</button>
-      <button class="quick-btn" onclick="askQuick('キャンセル規定を教えて')">📋 キャンセル規定</button>
-      <button class="quick-btn" onclick="askQuick('ジップツアーの詳細を教えて')">🪂 ジップツアー</button>
-      <button class="quick-btn" onclick="askQuick('割引区分の種類を教えて')">💳 割引区分</button>
+      <button class="quick-btn" data-quick="今やっているアクティビティは何ですか？">🎿 アクティビティ一覧</button>
+      <button class="quick-btn" data-quick="スノーチュービングの料金と制限を教えて">💰 スノーチュービング</button>
+      <button class="quick-btn" data-quick="星空温泉の営業時間は？">♨️ 星空温泉</button>
+      <button class="quick-btn" data-quick="悪天候のときアクティビティはどうなる？">🌨️ 悪天候対応</button>
+      <button class="quick-btn" data-quick="キャンセル規定を教えて">📋 キャンセル規定</button>
+      <button class="quick-btn" data-quick="ジップツアーの詳細を教えて">🪂 ジップツアー</button>
+      <button class="quick-btn" data-quick="割引区分の種類を教えて">💳 割引区分</button>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-label">Built-in Data</div>
-      <button class="quick-btn" onclick="openBuiltin('概要')">📋 概要シート</button>
-      <button class="quick-btn" onclick="openBuiltin('料金区分')">💴 料金区分</button>
-      <button class="quick-btn" onclick="openBuiltin('Q&A')">❓ Q&A</button>
+      <button class="quick-btn" data-builtin="概要">📋 概要シート</button>
+      <button class="quick-btn" data-builtin="料金区分">💴 料金区分</button>
+      <button class="quick-btn" data-builtin="Q&A">❓ Q&A</button>
     </div>
     <div class="sidebar-section" id="sidebarUserDocs"></div>
   </div>
 
-  <!-- CHAT VIEW -->
   <div class="view active" id="view-chat">
     <div class="messages" id="messages">
       <div class="welcome">
@@ -278,12 +53,11 @@ header{padding:11px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;
     <div class="input-area">
       <div class="input-row">
         <input type="text" id="userInput" placeholder="質問を入力 / Ask anything / 질문 입력..." />
-        <button id="sendBtn" onclick="sendMessage()">Send</button>
+        <button id="sendBtn">Send</button>
       </div>
     </div>
   </div>
 
-  <!-- DATA VIEW -->
   <div class="view" id="view-data">
     <div class="data-manager">
       <div class="dm-list">
@@ -291,17 +65,13 @@ header{padding:11px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;
           <h3 id="dmListTitle">📂 Knowledge Base</h3>
         </div>
 
-        <!-- DROP ZONE -->
-        <div class="drop-zone" id="dropZone"
-          ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)"
-          onclick="el('fileInput').click()">
+        <div class="drop-zone" id="dropZone">
           <div class="dz-icon">🤖</div>
           <div class="dz-text" id="dzText">ファイルをドロップ<br>AIが自動で読んでタグ付け<br><strong>クリックして選択</strong></div>
           <div class="dz-types">.xlsx　.csv　.md　.txt　.pdf</div>
-          <input type="file" id="fileInput" accept=".xlsx,.csv,.md,.txt,.pdf" onchange="handleFiles(this.files)" multiple />
+          <input type="file" id="fileInput" accept=".xlsx,.csv,.md,.txt,.pdf" multiple />
         </div>
 
-        <!-- AI PROCESSING -->
         <div class="ai-processing" id="aiProcessing">
           <div class="ai-proc-title">
             <span class="ai-proc-spinner"></span>
@@ -310,13 +80,11 @@ header{padding:11px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;
           <div id="aiProcFile"></div>
         </div>
 
-        <!-- SHEET SELECTOR -->
         <div class="sheet-selector" id="sheetSelector">
           <label id="sheetSelectorLabel">シートを選択してください</label>
-          <select id="sheetSelect" onchange="onSheetSelect()"></select>
+          <select id="sheetSelect"></select>
         </div>
 
-        <!-- TAG CONFIRM PANEL -->
         <div class="tag-confirm" id="tagConfirm">
           <div>
             <div class="tc-label" id="tcTitleLabel">タイトル</div>
@@ -340,7 +108,7 @@ header{padding:11px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;
             <div class="tag-chips" id="tagChips"></div>
             <div class="tag-add-row">
               <input class="tag-add-input" id="tagAddInput" placeholder="タグを追加..." />
-              <button class="tag-add-btn" onclick="addTag()">＋</button>
+              <button class="tag-add-btn" id="tagAddBtn">＋</button>
             </div>
           </div>
           <div>
@@ -348,8 +116,8 @@ header{padding:11px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;
             <input class="url-input" id="tcUrl" placeholder="https://..." />
           </div>
           <div class="tc-actions">
-            <button class="tc-save" id="tcSaveBtn" onclick="saveFromConfirm()">💾 保存してAIに反映</button>
-            <button class="tc-cancel" onclick="cancelConfirm()">✕</button>
+            <button class="tc-save" id="tcSaveBtn">💾 保存してAIに反映</button>
+            <button class="tc-cancel" id="tcCancelBtn">✕</button>
           </div>
         </div>
 
@@ -358,7 +126,6 @@ header{padding:11px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;
         </div>
       </div>
 
-      <!-- DOCUMENT VIEWER -->
       <div class="dm-viewer">
         <div class="dm-viewer-empty" id="dmViewerEmpty">
           <div class="viewer-empty-icon">🗂️</div>
@@ -376,646 +143,34 @@ header{padding:11px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;
           <div class="doc-content-preview" id="docDetailContent"></div>
         </div>
         <div class="doc-actions" id="docActions" style="display:none;">
-          <button class="del-btn-doc" onclick="deleteViewing()">🗑 削除</button>
+          <button class="del-btn-doc" id="delBtnDoc">🗑 削除</button>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- MODAL -->
-<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+<div class="modal-overlay" id="modalOverlay">
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title" id="modalTitle">Data</div>
       <div class="modal-sub" id="modalSub"></div>
-      <button class="modal-close" onclick="closeModal()">✕</button>
+      <button class="modal-close" id="modalCloseBtn">✕</button>
     </div>
     <div class="modal-tabs" id="modalTabs"></div>
     <div class="modal-body" id="modalBody"></div>
   </div>
 </div>
 
-<script>
-// ═══════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════
-const el = id => document.getElementById(id);
-function showModal(id) { el(id).classList.add('show'); }
-function hideModal(id) { el(id).classList.remove('show'); }
-function setDisplay(id, val) { el(id).style.display = val; }
-
-// ═══════════════════════════════════════════════════
-// LANGUAGE
-// ═══════════════════════════════════════════════════
-let lang = 'ja';
-
-const I18N = {
-  ja: {
-    chatBtn:'💬 チャット', dataBtn:'📁 データ管理',
-    quickQ:'クイック質問',
-    dzText:'ファイルをドロップ<br>AIが自動で読んでタグ付け<br><strong>クリックして選択</strong>',
-    aiProc:'AIがファイルを読んでいます...',
-    sheetSel:'シートを選択してください',
-    tcTitle:'タイトル', tcCat:'カテゴリ', tcTags:'タグ（複数可）',
-    tcSave:'💾 保存してAIに反映',
-    tagAdd:'タグを追加...',
-    dmEmpty:'ファイルをドロップして<br>AIに読ませてください。',
-    viewerEmpty:'左のリストからドキュメントを選択',
-    welcome:'日本語・English・한국어で質問できます。<br>Ask in any language — I\'ll respond in kind.<br><small class="welcome-hint">📁 Click any source to open the full data</small>',
-    sendBtn:'送信', placeholder:'質問を入力 / Ask anything / 질문 입력...',
-    sourceClick:'📁 データソース — クリックで開く',
-  },
-  en: {
-    chatBtn:'💬 Chat', dataBtn:'📁 Data',
-    quickQ:'Quick Questions',
-    dzText:'Drop files here<br>AI will read & tag automatically<br><strong>or click to select</strong>',
-    aiProc:'AI is reading the file...',
-    sheetSel:'Select a sheet',
-    tcTitle:'Title', tcCat:'Category', tcTags:'Tags (multiple OK)',
-    tcSave:'💾 Save & Apply to AI',
-    tagAdd:'Add a tag...',
-    dmEmpty:'Drop a file and<br>let the AI read it.',
-    viewerEmpty:'Select a document from the list',
-    welcome:'Ask in any language — I\'ll respond in kind.<br><small class="welcome-hint">📁 Click any source to open the full data</small>',
-    sendBtn:'Send', placeholder:'Ask anything...',
-    sourceClick:'📁 Data Source — Click to open',
-  },
-  ko: {
-    chatBtn:'💬 채팅', dataBtn:'📁 데이터',
-    quickQ:'빠른 질문',
-    dzText:'파일을 여기에 드롭하세요<br>AI가 자동으로 읽고 태그 설정<br><strong>클릭하여 선택</strong>',
-    aiProc:'AI가 파일을 읽고 있습니다...',
-    sheetSel:'시트를 선택하세요',
-    tcTitle:'제목', tcCat:'카테고리', tcTags:'태그 (복수 가능)',
-    tcSave:'💾 저장 및 AI에 반영',
-    tagAdd:'태그 추가...',
-    dmEmpty:'파일을 드롭하여<br>AI에게 읽혀보세요.',
-    viewerEmpty:'왼쪽 목록에서 문서를 선택하세요',
-    welcome:'한국어・日本語・English로 질문하세요.<br><small class="welcome-hint">📁 소스를 클릭하면 원본 데이터가 열립니다</small>',
-    sendBtn:'전송', placeholder:'무엇이든 질문하세요...',
-    sourceClick:'📁 데이터 소스 — 클릭하여 열기',
-  }
-};
-
-function setLang(l) {
-  lang = l;
-  ['ja','en','ko'].forEach(code => el('lang'+code.toUpperCase()).classList.toggle('active', code===l));
-  const t = I18N[l];
-  el('btn-chat').textContent = t.chatBtn;
-  el('btn-data').textContent = t.dataBtn;
-  el('dzText').innerHTML = t.dzText;
-  el('aiProcLabel').textContent = t.aiProc;
-  el('sheetSelectorLabel').textContent = t.sheetSel;
-  el('tcTitleLabel').textContent = t.tcTitle;
-  el('tcCatLabel').textContent = t.tcCat;
-  el('tcTagsLabel').textContent = t.tcTags;
-  el('tcSaveBtn').textContent = t.tcSave;
-  el('tagAddInput').placeholder = t.tagAdd;
-  el('dmEmpty').innerHTML = t.dmEmpty;
-  el('dmViewerEmptyText').textContent = t.viewerEmpty;
-  el('welcomeText').innerHTML = t.welcome;
-  el('sendBtn').textContent = t.sendBtn;
-  el('userInput').placeholder = t.placeholder;
-}
-
-// ═══════════════════════════════════════════════════
-// VIEW SWITCHING
-// ═══════════════════════════════════════════════════
-function switchView(name) {
-  ['chat','data'].forEach(v => {
-    el('view-'+v).classList.toggle('active', v===name);
-    el('btn-'+v).classList.toggle('active', v===name);
-  });
-  if (name==='data') renderList();
-}
-
-// ═══════════════════════════════════════════════════
-// BUILT-IN DATA
-// ═══════════════════════════════════════════════════
-const BUILTIN = {
-  '概要': {
-    file:'_11_21現在_25-26Winter_Seasonアクティビティ料金.xlsx', url:'',
-    note:'営業期間：2025年12月5日〜2026年4月24日　定価（税込）一覧',
-    headers:['区分','No.','コンテンツ名','開催場所','対象年齢','身体制限','定価（13歳以上）','定価（7-12歳）','回数','催行時間','開催時間','期間','備考'],
-    rows:[
-      {s:'── パス（1日券） ──'},
-      {d:['パス','—','雪あそびゲレンデパス','—','制限なし','なし','¥2,500','¥2,000','1日','—','10:00〜16:00','12/19〜4/5','遊び放題。購入日のみ有効']},
-      {d:['パス','—','ハッピーパス','—','制限なし','なし','¥5,000','¥4,000','1日','—','10:00〜17:00','12/19〜4/5','スノーラフティング除く']},
-      {d:['パス','—','とにかく楽しい！パス','—','10歳以上','なし','¥16,000','¥13,000','1日','—','10:00〜17:00','12/19〜4/5','スノーラフティング除く']},
-      {s:'── 単品コンテンツ ──'},
-      {d:['単品','1','スポンジボブキッズパーク','プラザ','制限なし','なし','¥1,000','—','1日','—','10:00〜16:00','12/19〜4/5','キッズゲレンデ・遊具あり']},
-      {d:['単品','2','ストライダーパーク','プラザ','制限なし','なし','¥1,000','—','1日','—','10:00〜16:00','12/19〜4/5','スキー・スノーボード滑走NG']},
-      {d:['単品','3','あそべるゲレンデ','L1エリア','制限なし','なし','¥1,500','—','3回','—','10:00〜16:00','12/19〜4/5','ムービングベルト可']},
-      {h:true,d:['単品','4','スノーチュービング','チュービングパーク','4歳以上','身長100cm以上・体重100kg以下','¥2,200','¥1,700（4-12歳）','3回','約30分','10:00〜16:00','12/19〜4/5','3回券の複数人共有不可']},
-      {d:['単品','5','ジップライン','チュービングパーク','4歳以上','身長100cm以上・体重100kg以下','¥2,200','¥1,700（4-12歳）','3回','約40分','10:00〜16:00','12/5〜4/24','ゴーグル・手袋推奨']},
-      {d:['単品','6','プレイグラウンド','ヴィレッジステーション','4歳以上','身長100cm以上・体重100kg以下','¥2,200','¥1,700（4-12歳）','1回','約50分','10:00〜17:00','12/5〜4/24','靴下必須']},
-      {d:['単品','7','スノーラフティング','ゲレンデ L1','制限なし','未就学児は保護者同伴','¥2,500','—','1回','約15分','13:00〜16:00','12/19〜4/5','パス利用でも1日1回']},
-      {d:['単品','8','星空温泉','新井館','制限なし','なし','¥1,300','¥800（4-12歳）','1回','—','平日AM5-10/PM13-23\n土日祝終日5-23','通年','おむつ未卒業NG']},
-      {d:['単品','9','星空プール','新井館','制限なし','なし','¥2,000','¥1,500（4-12歳）','1回','—','平日13-21:30\n土日祝11-21:30','通年','ロッカー¥500']},
-      {d:['単品','10','ジップツアー','膳棚〜山麓第二','10歳以上','身長120cm以上・体重30〜110kg','¥8,000','¥6,500（10-12歳）','1回','約90分','13:00','12/13〜4/5','荷物預かり込み']},
-      {d:['単品','11','スノードライブツアー','妙高ロングラン','7歳以上','なし','¥5,500','¥4,500（7-12歳）','1回','約90分','10:00/13:00','12/19〜4/19','リフト券込み']},
-    ]
-  },
-  '料金区分': {
-    file:'_11_21現在_25-26Winter_Seasonアクティビティ料金.xlsx', url:'',
-    note:'割引区分ごとの料金。詳細金額は元ファイルの数式を参照。',
-    headers:['区分','No.','コンテンツ名','年齢区分','定価','A（約10%OFF）','B（約20%OFF）','C（約30%OFF）','D（約50%OFF）'],
-    rows:[
-      {s:'── パス ──'},
-      {d:['パス','—','雪あそびゲレンデパス','13歳以上','¥2,500','¥2,250','¥1,980','¥1,760','¥1,250']},
-      {d:['','','','7-12歳','¥2,000','¥1,800','¥1,540','¥1,430','¥1,000']},
-      {d:['パス','—','ハッピーパス','13歳以上','¥5,000','¥4,500','¥3,960','¥3,520','¥2,500']},
-      {d:['','','','7-12歳','¥4,000','¥3,600','¥3,190','¥2,860','¥2,000']},
-      {d:['パス','—','とにかく楽しい！パス','13歳以上','¥16,000','¥14,400','¥12,760','¥11,220','¥8,000']},
-      {d:['','','','7-12歳','¥13,000','¥11,700','¥10,340','¥9,130','¥6,500']},
-      {s:'── 単品（主要） ──'},
-      {d:['単品','10','ジップツアー','13歳以上','¥8,000','¥7,200','¥6,380','¥5,610','¥4,000']},
-      {d:['','','','10-12歳','¥6,500','¥5,850','¥5,170','¥4,510','¥3,250']},
-      {d:['単品','11','スノードライブツアー','13歳以上','¥5,500','¥5,000','¥4,400','¥3,850','¥2,750']},
-      {d:['','','','7-12歳','¥4,500','¥4,000','¥3,520','¥3,080','¥2,250']},
-    ]
-  },
-  'Q&A': {
-    file:'_11_21現在_25-26Winter_Seasonアクティビティ料金.xlsx', url:'',
-    note:'リゾートオペレーション 営業Q&A — スタッフ向け対応マニュアル',
-    headers:['Q','内容'],
-    rows:[
-      {s:'── 営業・受付 ──'},
-      {d:['Q1','【営業時間】10:00〜17:00 / 受付 9:00〜16:00']},
-      {d:['Q2','【日帰り利用】全アクティビティ、宿泊・日帰り問わず利用可能']},
-      {s:'── 天候・安全 ──'},
-      {d:['Q3','【悪天候時】\n✅継続：少量の雨・風・注意報\n❌見合わせ：警報・雷・風速10m/s超\n⚠️点検：震度4以上・台風・落雷']},
-      {s:'── 料金・キャンセル ──'},
-      {d:['Q4','【キャンセル規定】\n無料：前日まで / 主催者都合\n50%：当日・開催前（客都合）\n100%：当日・開催後（客都合）']},
-      {d:['Q5','【小人条件】13歳以上→大人料金 / 7-12歳→小人料金 / 4歳以上→参加可（保護者同伴）']},
-      {s:'── 運営・手続き ──'},
-      {d:['Q7','【荷物】有料ロッカー（200/500/1000円）。ジップツアー・スノードライブは預かりあり']},
-      {d:['Q8','【予約必須】ジップツアー・スノードライブ・スノーラフティング\n整理券・チケットは当日のみ発行']},
-      {d:['Q9','【予約方法】WEB推奨 / 内線1454 / 外線025-575-1177']},
-    ]
-  }
-};
-
-// ═══════════════════════════════════════════════════
-// USER DOCS
-// ═══════════════════════════════════════════════════
-let userDocs = [];
-let viewingId = null;
-let pendingDoc = null;
-let pendingTags = [];
-let pendingXlsx = null;
-
-const CAT_ICONS = {
-  activities:'🎿', rooms:'🛏️', rates:'💴', facilities:'🏨',
-  faq:'❓', tourism:'🗺️', operations:'📋', other:'📄'
-};
-
-function renderList() {
-  const container = el('dmItems');
-  if (!userDocs.length) {
-    container.innerHTML = `<div class="dm-empty" id="dmEmpty">${I18N[lang].dmEmpty}</div>`;
-    updateSidebar(); return;
-  }
-  container.innerHTML = userDocs.map(d => `
-    <div class="dm-item ${viewingId===d.id?'active':''}" onclick="viewDoc('${d.id}')">
-      <div class="dm-item-icon">${CAT_ICONS[d.category]||'📄'}</div>
-      <div class="dm-item-info">
-        <div class="dm-item-title">${d.title}</div>
-        <div class="dm-item-tags">${(d.tags||[]).map(t=>`<span class="dm-item-tag">${t}</span>`).join('')}</div>
-      </div>
-      <button class="dm-item-del" onclick="event.stopPropagation();deleteById('${d.id}')">×</button>
-    </div>`).join('');
-  updateSidebar();
-}
-
-function updateSidebar() {
-  const container = el('sidebarUserDocs');
-  if (!userDocs.length) { container.innerHTML=''; return; }
-  const bycat = {};
-  userDocs.forEach(d => { if(!bycat[d.category]) bycat[d.category]=[]; bycat[d.category].push(d); });
-  container.innerHTML = Object.entries(bycat).map(([cat,docs]) => `
-    <div class="sidebar-label">${CAT_ICONS[cat]||'📄'} ${cat}</div>
-    ${docs.map(d=>`<button class="quick-btn" onclick="viewDoc('${d.id}')">${d.title.slice(0,22)}</button>`).join('')}
-  `).join('');
-}
-
-function viewDoc(id) {
-  const d = userDocs.find(x=>x.id===id); if(!d) return;
-  viewingId = id;
-  renderList();
-  setDisplay('dmViewerEmpty', 'none');
-  setDisplay('docDetail', 'block');
-  setDisplay('docActions', 'flex');
-  el('docDetailTitle').textContent = d.title;
-  el('docDetailTags').innerHTML =
-    `<span class="tag-pill cat">${CAT_ICONS[d.category]} ${d.category}</span>` +
-    (d.tags||[]).map(t=>`<span class="tag-pill">${t}</span>`).join('');
-  el('docDetailSource').textContent = d.source ? `📄 ${d.source}` : '';
-  el('docDetailUrl').innerHTML = d.url ? `🔗 <a href="${d.url}" target="_blank">${d.url}</a>` : '';
-  const preview = (d.content||'').slice(0, 3000);
-  el('docDetailContent').textContent = preview + (d.content&&d.content.length>3000?'\n\n[...]':'');
-}
-
-function deleteViewing() {
-  if(!viewingId) return;
-  if(!confirm('削除しますか？')) return;
-  deleteById(viewingId);
-  viewingId=null;
-  setDisplay('dmViewerEmpty', 'flex');
-  setDisplay('docDetail', 'none');
-  setDisplay('docActions', 'none');
-}
-
-function deleteById(id) {
-  userDocs = userDocs.filter(x=>x.id!==id);
-  if(viewingId===id) { viewingId=null; }
-  renderList();
-}
-
-// ═══════════════════════════════════════════════════
-// DRAG & DROP + FILE HANDLING
-// ═══════════════════════════════════════════════════
-function dzOver(e){e.preventDefault();el('dropZone').classList.add('drag-over');}
-function dzLeave(e){el('dropZone').classList.remove('drag-over');}
-function dzDrop(e){e.preventDefault();el('dropZone').classList.remove('drag-over');handleFiles(e.dataTransfer.files);}
-
-function handleFiles(files) {
-  if(!files||!files.length) return;
-  Array.from(files).forEach(f => processFile(f));
-}
-
-function processFile(file) {
-  const name = file.name;
-  const ext = name.split('.').pop().toLowerCase();
-  switchView('data');
-  showAiProc(name);
-
-  const reader = new FileReader();
-
-  if(ext==='xlsx') {
-    reader.onload = e => {
-      const wb = XLSX.read(e.target.result, {type:'array'});
-      pendingXlsx = {wb, fileName:name};
-      hideAiProc();
-      if(wb.SheetNames.length===1) {
-        loadXlsxSheet(wb, wb.SheetNames[0], name);
-      } else {
-        const sel = el('sheetSelect');
-        sel.innerHTML = wb.SheetNames.map(s=>`<option value="${s}">${s}</option>`).join('');
-        showModal('sheetSelector');
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  } else if(ext==='csv') {
-    reader.onload = e => { hideAiProc(); aiTagFile(name,'sheet',e.target.result); };
-    reader.readAsText(file,'UTF-8');
-  } else if(ext==='md'||ext==='txt') {
-    reader.onload = e => { hideAiProc(); aiTagFile(name,'md',e.target.result); };
-    reader.readAsText(file,'UTF-8');
-  } else if(ext==='pdf') {
-    reader.onload = e => {
-      hideAiProc();
-      const bytes = new Uint8Array(e.target.result);
-      let text = '';
-      try {
-        const raw = new TextDecoder('utf-8',{fatal:false}).decode(bytes);
-        const matches = raw.match(/BT[\s\S]*?ET/g)||[];
-        const ex = matches.map(b=>{
-          const tjs=b.match(/\((.*?)\)\s*Tj/g)||[];
-          return tjs.map(t=>t.replace(/^\(|\)\s*Tj$/g,'')).join(' ');
-        }).join('\n').trim();
-        text = ex || '（テキスト抽出できませんでした。内容を確認し手動で補足してください）';
-      } catch(err){ text='（テキスト抽出できませんでした）'; }
-      aiTagFile(name,'pdf',text);
-    };
-    reader.readAsArrayBuffer(file);
-  } else {
-    hideAiProc();
-    alert(`非対応形式: .${ext}\n対応: .xlsx .csv .md .txt .pdf`);
-  }
-}
-
-function onSheetSelect() {
-  if(!pendingXlsx) return;
-  const sn = el('sheetSelect').value;
-  hideModal('sheetSelector');
-  loadXlsxSheet(pendingXlsx.wb, sn, pendingXlsx.fileName);
-  pendingXlsx = null;
-}
-
-function loadXlsxSheet(wb, sheetName, fileName) {
-  const ws = wb.Sheets[sheetName];
-  const tsv = XLSX.utils.sheet_to_csv(ws,{FS:'\t',defval:''});
-  showAiProc(fileName);
-  aiTagFile(`${fileName} — ${sheetName}`, 'sheet', tsv);
-}
-
-// ═══════════════════════════════════════════════════
-// AI AUTO-TAGGING
-// ═══════════════════════════════════════════════════
-async function aiTagFile(filename, type, content) {
-  showAiProc(filename);
-  const preview = content.slice(0,1500);
-  const prompt = `You are an AI assistant for a hotel knowledge base called "LOTTE ARAI RESORT".
-
-A staff member just uploaded a file. Read the content and respond ONLY with this JSON (no backticks):
-{
-  "title": "短いわかりやすいタイトル（日本語OK、30文字以内）",
-  "category": "one of: activities | rooms | rates | facilities | faq | tourism | operations | other",
-  "tags": ["tag1","tag2","tag3"],
-  "summary": "2〜3文の日本語要約"
-}
-
-Tags should be short keywords (Japanese or English), 3-6 tags, reflecting the content well.
-
-Filename: ${filename}
-Type: ${type}
-Content preview:
-${preview}`;
-
-  try {
-    const res = await fetch('https://arai-proxy.sho-0a4.workers.dev',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:400,
-        messages:[{role:'user',content:prompt}]
-      })
-    });
-    const data = await res.json();
-    const raw = data.content?.[0]?.text||'{}';
-    let parsed;
-    try{ parsed=JSON.parse(raw.replace(/```json|```/g,'').trim()); }
-    catch{ parsed={title:filename,category:'other',tags:[],summary:''}; }
-    openTagConfirm(filename, type, content, parsed);
-  } catch(e) {
-    openTagConfirm(filename, type, content, {});
-  }
-}
-
-function openTagConfirm(filename, type, content, parsed) {
-  hideAiProc();
-  pendingDoc = {filename, type, content, summary: parsed.summary||''};
-  pendingTags = parsed.tags||[];
-  el('tcTitle').value = parsed.title||filename;
-  el('tcCategory').value = parsed.category||'other';
-  el('tcUrl').value = '';
-  renderTagChips();
-  showModal('tagConfirm');
-}
-
-function renderTagChips() {
-  el('tagChips').innerHTML = pendingTags.map((t,i)=>`
-    <span class="tag-chip">${t}
-      <button class="remove-tag" onclick="removeTag(${i})">×</button>
-    </span>`).join('');
-}
-
-function removeTag(i) { pendingTags.splice(i,1); renderTagChips(); }
-
-function addTag() {
-  const input = el('tagAddInput');
-  const val = input.value.trim();
-  if(val && !pendingTags.includes(val)) { pendingTags.push(val); renderTagChips(); }
-  input.value='';
-}
-
-function createDocFromForm() {
-  return {
-    id: 'doc_'+Date.now(),
-    title: el('tcTitle').value.trim()||pendingDoc.filename,
-    category: el('tcCategory').value,
-    tags: [...pendingTags],
-    source: pendingDoc.filename,
-    url: el('tcUrl').value.trim(),
-    content: pendingDoc.content,
-    summary: pendingDoc.summary,
-    type: pendingDoc.type,
-  };
-}
-
-function saveFromConfirm() {
-  if(!pendingDoc) return;
-  const doc = createDocFromForm();
-  userDocs.push(doc);
-  pendingDoc=null; pendingTags=[];
-  hideModal('tagConfirm');
-  renderList();
-  viewDoc(doc.id);
-}
-
-function cancelConfirm() {
-  pendingDoc=null; pendingTags=[];
-  hideModal('tagConfirm');
-}
-
-function showAiProc(name) {
-  el('aiProcLabel').textContent = I18N[lang].aiProc;
-  el('aiProcFile').textContent = name;
-  showModal('aiProcessing');
-}
-function hideAiProc() { hideModal('aiProcessing'); }
-
-// ═══════════════════════════════════════════════════
-// MODAL (Built-in sheets)
-// ═══════════════════════════════════════════════════
-function openBuiltin(name) {
-  const keys=Object.keys(BUILTIN);
-  buildModal(`📊 ${name}`,BUILTIN[name].file,keys,name,n=>renderBuiltinSheet(n));
-}
-
-function buildModal(title,sub,tabs,activeTab,renderer) {
-  el('modalTitle').textContent=title;
-  el('modalSub').textContent=sub;
-  const tabsEl=el('modalTabs');
-  const bodyEl=el('modalBody');
-  tabsEl.innerHTML=''; bodyEl.innerHTML='';
-  tabs.forEach(name=>{
-    const tab=document.createElement('div');
-    tab.className='modal-tab'+(name===activeTab?' active':'');
-    tab.textContent=name;
-    const sid='sc_'+name.replace(/[^\w]/g,'_');
-    tab.onclick=()=>{
-      document.querySelectorAll('.modal-tab').forEach(t=>t.classList.remove('active'));
-      tab.classList.add('active');
-      document.querySelectorAll('.sheet-content').forEach(c=>c.classList.remove('active'));
-      el(sid).classList.add('active');
-    };
-    tabsEl.appendChild(tab);
-    const content=document.createElement('div');
-    content.className='sheet-content'+(name===activeTab?' active':'');
-    content.id=sid;
-    content.innerHTML=renderer(name);
-    bodyEl.appendChild(content);
-  });
-  el('modalOverlay').classList.add('active');
-}
-
-function renderBuiltinSheet(name) {
-  const s=BUILTIN[name]; if(!s) return '<p>No data</p>';
-  let h='';
-  if(s.url) h+=`<div class="sheet-url-bar">🔗 <a href="${s.url}" target="_blank">${s.url}</a></div>`;
-  h+=`<div class="sheet-note">${s.note}</div>`;
-  h+=`<table class="sheet-table"><thead><tr>`;
-  s.headers.forEach(x=>{h+=`<th>${x}</th>`;});
-  h+=`</tr></thead><tbody>`;
-  s.rows.forEach(row=>{
-    if(row.s){ h+=`<tr class="section-header"><td colspan="${s.headers.length}">${row.s}</td></tr>`; }
-    else {
-      h+=`<tr${row.h?' class="highlight-row"':''}>`;
-      row.d.forEach(c=>{h+=`<td>${c?c.replace(/\n/g,'<br>'):''}</td>`;});
-      h+=`</tr>`;
-    }
-  });
-  h+=`</tbody></table>`; return h;
-}
-
-function closeModal(){el('modalOverlay').classList.remove('active');}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
-
-// ═══════════════════════════════════════════════════
-// AI CHAT
-// ═══════════════════════════════════════════════════
-const BASE_SYS = `You are the staff knowledge base assistant for LOTTE ARAI RESORT, a luxury ski resort in Myoko, Niigata, Japan.
-
-IMPORTANT: Always respond in the SAME language the user writes in.
-- If user writes in Japanese → respond in Japanese
-- If user writes in English → respond in English
-- If user writes in Korean → respond in Korean
-
-Always cite your data source. Return ONLY this JSON (no backticks):
-{"answer":"your answer","items":[{"name":"","price_adult":"","price_child":"","time":"","period":"","tag":"winter|allyear"}],"table_title":"","table_headers":[],"table_rows":[],"source":{"sheet":"source name","note":"note","url":""}}
-
-items and table_rows are [] when not needed.
-
-BUILT-IN DATA:
-■Overview sheet (prices incl. tax):
-Passes: Snow Play Pass ¥2,500/¥2,000 · Happy Pass ¥5,000/¥4,000 · Tanoshii Pass ¥16,000/¥13,000
-Singles: 1.SpongeBob ¥1,000 2.Strider ¥1,000 3.Snow Slope ¥1,500 4.Snow Tubing ¥2,200/¥1,700 5.Zipline ¥2,200/¥1,700 6.Playground ¥2,200/¥1,700 7.Snow Rafting ¥2,500 8.Starry Onsen ¥1,300/¥800 9.Starry Pool ¥2,000/¥1,500 10.Zip Tour ¥8,000/¥6,500 11.Snow Drive Tour ¥5,500/¥4,500
-■Discount sheet: A≈10%OFF B≈20%OFF C≈30%OFF D≈50%OFF(staff) E=special
-■Q&A sheet: Hours 10-17/reception 9-16 · Day visitors OK · Bad weather(warning/lightning/wind>10m/s→cancel) · Cancel policy(free until day before/50% day-of before/100% day-of after) · Reservation required for Zip Tour/Snow Drive/Snow Rafting · Ext.1454`;
-
-function buildSys(){
-  let s=BASE_SYS;
-  if(userDocs.length){
-    s+='\n\nADDITIONAL REGISTERED DATA:\n';
-    userDocs.forEach(d=>{
-      s+=`\n■"${d.title}" [category:${d.category}] [tags:${(d.tags||[]).join(',')}]`;
-      if(d.source) s+=` [file:${d.source}]`;
-      if(d.url) s+=` [url:${d.url}]`;
-      if(d.summary) s+=`\nSummary: ${d.summary}`;
-      if(d.content) s+=`\nContent:\n${d.content.slice(0,2000)}`;
-    });
-  }
-  return s;
-}
-
-let history=[];
-
-async function callChatAPI(messages, system) {
-  const res = await fetch('https://arai-proxy.sho-0a4.workers.dev', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514', max_tokens:1000, system, messages})
-  });
-  const data = await res.json();
-  const raw = data.content?.[0]?.text || '{}';
-  let parsed;
-  try { parsed = JSON.parse(raw.replace(/```json|```/g,'').trim()); }
-  catch { parsed = {answer:raw, items:[], table_rows:[], source:null}; }
-  return {raw, parsed};
-}
-
-async function sendMessage(text){
-  const input=el('userInput');
-  const msg=text||input.value.trim(); if(!msg) return;
-  input.value=''; appendUser(msg);
-  const tid=showThinking();
-  el('sendBtn').disabled=true;
-  history.push({role:'user',content:msg});
-  try{
-    const {raw, parsed} = await callChatAPI(history, buildSys());
-    history.push({role:'assistant',content:raw});
-    hideThinking(tid); renderAnswer(parsed);
-  }catch(e){hideThinking(tid);appendUser('Error. Please try again.');}
-  el('sendBtn').disabled=false;
-}
-
-function askQuick(t){el('userInput').value=t;sendMessage(t);}
-
-function appendUser(text){
-  const m=el('messages'),d=document.createElement('div');
-  d.className='message user';
-  d.innerHTML=`<div class="avatar user">S</div><div class="bubble">${text}</div>`;
-  m.appendChild(d);m.scrollTop=m.scrollHeight;
-}
-
-function showThinking(){
-  const m=el('messages'),id='t'+Date.now(),d=document.createElement('div');
-  d.className='message ai';d.id=id;
-  d.innerHTML=`<div class="avatar ai">L</div><div class="bubble"><div class="thinking"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
-  m.appendChild(d);m.scrollTop=m.scrollHeight;return id;
-}
-function hideThinking(id){el(id)?.remove();}
-
-function renderAnswer(data){
-  const m=el('messages'),d=document.createElement('div');
-  d.className='message ai';
-  let h=`<div class="avatar ai">L</div><div class="bubble"><div>${(data.answer||'').replace(/\n/g,'<br>')}</div>`;
-
-  if(data.items?.length){
-    h+=`<div class="answer-section"><div class="answer-label">Results</div><div class="ans-item-grid">`;
-    data.items.forEach(item=>{
-      h+=`<div class="ans-item-card">
-        <div class="ans-item-name">${item.name}</div>
-        <div class="ans-item-price">${item.price_adult||'—'}${item.price_child&&item.price_child!=='null'?' / '+item.price_child:''}</div>
-        <div class="ans-item-meta">${item.time||''} ${item.period?'· '+item.period:''}</div>
-        <span class="tag-pill ans-item-tag">${item.tag==='allyear'?'通年 / All year':'ウィンター / Winter'}</span>
-      </div>`;
-    });
-    h+=`</div></div>`;
-  }
-
-  if(data.table_rows?.length){
-    h+=`<div class="answer-section"><div class="answer-label">${data.table_title||'Details'}</div>`;
-    h+=`<table class="ans-table"><thead><tr>`;
-    (data.table_headers||[]).forEach(x=>{h+=`<th>${x}</th>`;});
-    h+=`</tr></thead><tbody>`;
-    data.table_rows.forEach((row,i)=>{
-      h+=`<tr${i%2?' class="alt"':''}>`;
-      Object.values(row).forEach(v=>{h+=`<td>${v||''}</td>`;});
-      h+=`</tr>`;
-    });
-    h+=`</tbody></table></div>`;
-  }
-
-  if(data.source){
-    const s=data.source;
-    const isBuiltin=!!BUILTIN[s.sheet];
-    const ud=userDocs.find(d=>d.title===s.sheet);
-    const clickable=isBuiltin||ud;
-    const onclick=isBuiltin?`openBuiltin('${s.sheet}')`:(ud?`viewDoc('${ud.id}');switchView('data')`:'' );
-    const urlPart=s.url?`<div class="ref-url">🔗 <a href="${s.url}" target="_blank" onclick="event.stopPropagation()">${s.url}</a></div>`:'';
-    h+=`<div class="source-ref${clickable?'':' no-click'}" ${onclick?`onclick="${onclick}"`:''>
-      <div class="ref-info">
-        <div class="ref-title">${I18N[lang].sourceClick}</div>
-        <div class="source-ref-desc"><strong>${s.sheet}</strong>${s.note?' · '+s.note:''}</div>
-        ${urlPart}
-      </div>
-      ${clickable?'<div class="open-icon">↗</div>':''}
-    </div>`;
-  }
-
-  h+=`</div>`;d.innerHTML=h;m.appendChild(d);m.scrollTop=m.scrollHeight;
-}
-
-el('userInput').addEventListener('keydown',e=>{
-  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}
-});
-el('tagAddInput').addEventListener('keydown',e=>{
-  if(e.key==='Enter') addTag();
-});
-</script>
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/data.js"></script>
+<script src="js/modal.js"></script>
+<script src="js/docs.js"></script>
+<script src="js/files.js"></script>
+<script src="js/ai-tag.js"></script>
+<script src="js/chat.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
