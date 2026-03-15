@@ -32,13 +32,17 @@ function updateSidebar() {
   }).join('');
 }
 
+function showDocViewer(show) {
+  setDisplay('dmViewerEmpty', show ? 'none' : 'flex');
+  setDisplay('docDetail', show ? 'block' : 'none');
+  setDisplay('docActions', show ? 'flex' : 'none');
+}
+
 function viewDoc(id) {
   var d = userDocs.find(function(x) { return x.id === id; }); if (!d) return;
   viewingId = id;
   renderList();
-  setDisplay('dmViewerEmpty', 'none');
-  setDisplay('docDetail', 'block');
-  setDisplay('docActions', 'flex');
+  showDocViewer(true);
   el('docDetailTitle').textContent = d.title;
   el('docDetailTags').innerHTML =
     '<span class="tag-pill cat">' + (CAT_ICONS[d.category] || '📄') + ' ' + d.category + '</span>' +
@@ -54,9 +58,7 @@ function deleteViewing() {
   if (!confirm('削除しますか？')) return;
   deleteById(viewingId);
   viewingId = null;
-  setDisplay('dmViewerEmpty', 'flex');
-  setDisplay('docDetail', 'none');
-  setDisplay('docActions', 'none');
+  showDocViewer(false);
 }
 
 function deleteById(id) {
