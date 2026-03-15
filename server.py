@@ -2,6 +2,7 @@ import os
 import json
 from flask import Flask, request, jsonify, send_from_directory
 import google.generativeai as genai
+import time
 import psycopg2
 import psycopg2.extras
 
@@ -129,7 +130,7 @@ def create_doc():
     data = request.get_json(silent=True)
     if not data:
         return jsonify({'error': 'Invalid request'}), 400
-    doc_id = data.get('id', 'doc_' + str(int(__import__('time').time() * 1000)))
+    doc_id = data.get('id', 'doc_' + str(int(time.time() * 1000)))
     tags_json = json.dumps(data.get('tags', []), ensure_ascii=False)
     conn = get_db()
     cur = conn.cursor()
