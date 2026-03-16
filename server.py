@@ -2,35 +2,50 @@ import os
 import json
 import time
 import traceback
-from datetime import datetime, timezone
 from flask import Flask, request, jsonify, send_from_directory
 import google.generativeai as genai
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
-FIREBASE_CREDENTIALS = os.environ.get('FIREBASE_CREDENTIALS', '')
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
-firestore_db = None
+db_conn = None
 
 
-def init_firestore():
-    global firestore_db
-    if not FIREBASE_CREDENTIALS:
-        print('[WARN] FIREBASE_CREDENTIALS not set — document persistence disabled')
+def get_db():
+    global db_conn
+    try:
+        if db_conn is None or db_conn.closed:
+            import psycopg2
+            db_conn = psycopg2.connect(DATABASE_URL)
+            db_conn.autocommit = True
+        return db_conn
+    except Exception as e:
+        print("[ERROR] DB connection failed: " + str(e))
+        traceback.print_exc()
+        return None
+
+
+def init_db():
+    if not DATABASE_URL:
+        print("[WARN] DATABASE_URL not set -- document persistence disabled")
         return
     try:
-        from google.cloud import firestore
-        from google.oauth2 import service_account
-        creds_dict = json.loads(FIREBASE_CREDENTIALS)
-        credentials = service_account.Credentials.from_service_account_info(creds_dict)
-        firestore_db = firestore.Client(credentials=credentials, project=creds_dict.get('project_id'))
-        print('[OK] Firestore initialized (project: ' + str(creds_dict.get('project_id')) + ')')
+        conn = get_db()
+        if not conn:
+            return
+        with conn.cursor() as cur:
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS documents ("
+                "id TEXT PRIMARY KEY, title TEXT, category TEXT, tags JSONB,"
+                "source TEXT, url TEXT, content TEXT, summary TEXT, type TEXT,"
+                "created_at TIMESTAMPTZ DEFAULT NOW())"
+            )
+        print("[OK] Database initialized")
     except Exception as e:
-        print('[ERROR] Firestore init failed: ' + str(e))
+        print("[ERROR] DB init failed: " + str(e))
         traceback.print_exc()
-
-
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
     print('[OK] Gemini API key configured')
@@ -99,77 +114,91 @@ def chat():
 
 @app.route('/api/docs', methods=['GET'])
 def list_docs():
-    if not firestore_db:
-        return jsonify({'error': 'FIREBASE_CREDENTIALS not configured'}), 503
+    if not DATABASE_URL:
+        return jsonify({"error": "DATABASE_URL not configured"}), 503
     try:
-        docs_ref = firestore_db.collection('documents').order_by('created_at', direction='DESCENDING')
+        conn = get_db()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, title, category, tags, source, url, content, summary, type, created_at"
+                " FROM documents ORDER BY created_at DESC"
+            )
+            rows = cur.fetchall()
         result = []
-        for doc_snapshot in docs_ref.stream():
-            doc = doc_snapshot.to_dict()
-            doc['id'] = doc_snapshot.id
-            if doc.get('tags') is None:
-                doc['tags'] = []
-            ca = doc.get('created_at')
-            if ca and hasattr(ca, 'isoformat'):
-                doc['created_at'] = ca.isoformat()
-            elif ca:
-                doc['created_at'] = str(ca)
-            result.append(doc)
+        for row in rows:
+            result.append({
+                "id": row[0], "title": row[1], "category": row[2],
+                "tags": row[3] if row[3] else [],
+                "source": row[4], "url": row[5], "content": row[6],
+                "summary": row[7], "type": row[8],
+                "created_at": row[9].isoformat() if row[9] else None,
+            })
         return jsonify(result)
     except Exception as e:
-        print('[ERROR] /api/docs GET failed: ' + str(e))
+        print("[ERROR] /api/docs GET failed: " + str(e))
         traceback.print_exc()
-        return jsonify({'error': 'Firestore read failed: ' + str(e)}), 500
-
-
+        return jsonify({"error": "DB read failed: " + str(e)}), 500
 @app.route('/api/docs', methods=['POST'])
 def create_doc():
-    if not firestore_db:
-        return jsonify({'error': 'FIREBASE_CREDENTIALS not configured'}), 503
+    if not DATABASE_URL:
+        return jsonify({"error": "DATABASE_URL not configured"}), 503
     data = request.get_json(silent=True)
     if not data:
-        return jsonify({'error': 'Invalid request'}), 400
-    doc_id = data.get('id', 'doc_' + str(int(time.time() * 1000)))
-    doc_data = {
-        'title': data.get('title', ''),
-        'category': data.get('category', 'other'),
-        'tags': data.get('tags', []),
-        'source': data.get('source', ''),
-        'url': data.get('url', ''),
-        'content': data.get('content', ''),
-        'summary': data.get('summary', ''),
-        'type': data.get('type', ''),
-        'created_at': datetime.now(timezone.utc),
-    }
+        return jsonify({"error": "Invalid request"}), 400
+    doc_id = data.get("id", "doc_" + str(int(time.time() * 1000)))
     try:
-        firestore_db.collection('documents').document(doc_id).set(doc_data)
-        print('[OK] Document saved: ' + doc_id)
+        conn = get_db()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO documents (id, title, category, tags, source, url, content, summary, type)"
+                " VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)"
+                " ON CONFLICT (id) DO UPDATE SET"
+                " title=EXCLUDED.title, category=EXCLUDED.category, tags=EXCLUDED.tags,"
+                " source=EXCLUDED.source, url=EXCLUDED.url, content=EXCLUDED.content,"
+                " summary=EXCLUDED.summary, type=EXCLUDED.type",
+                (
+                    doc_id,
+                    data.get("title", ""),
+                    data.get("category", "other"),
+                    json.dumps(data.get("tags", [])),
+                    data.get("source", ""),
+                    data.get("url", ""),
+                    data.get("content", ""),
+                    data.get("summary", ""),
+                    data.get("type", ""),
+                )
+            )
+        print("[OK] Document saved: " + doc_id)
     except Exception as e:
-        print('[ERROR] /api/docs POST failed: ' + str(e))
+        print("[ERROR] /api/docs POST failed: " + str(e))
         traceback.print_exc()
-        return jsonify({'error': 'Firestore write failed: ' + str(e)}), 500
-    return jsonify({'id': doc_id, 'ok': True})
-
-
+        return jsonify({"error": "DB write failed: " + str(e)}), 500
+    return jsonify({"id": doc_id, "ok": True})
 @app.route('/api/docs/<doc_id>', methods=['DELETE'])
 def delete_doc(doc_id):
-    if not firestore_db:
-        return jsonify({'error': 'FIREBASE_CREDENTIALS not configured'}), 503
+    if not DATABASE_URL:
+        return jsonify({"error": "DATABASE_URL not configured"}), 503
     try:
-        firestore_db.collection('documents').document(doc_id).delete()
-        print('[OK] Document deleted: ' + doc_id)
+        conn = get_db()
+        if not conn:
+            return jsonify({"error": "DB connection failed"}), 500
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM documents WHERE id = %s", (doc_id,))
+        print("[OK] Document deleted: " + doc_id)
     except Exception as e:
-        print('[ERROR] /api/docs DELETE failed: ' + str(e))
+        print("[ERROR] /api/docs DELETE failed: " + str(e))
         traceback.print_exc()
-        return jsonify({'error': 'Firestore delete failed: ' + str(e)}), 500
-    return jsonify({'ok': True})
-
-
+        return jsonify({"error": "DB delete failed: " + str(e)}), 500
+    return jsonify({"ok": True})
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({
         'gemini': bool(GEMINI_API_KEY),
-        'firestore': firestore_db is not None,
+    return jsonify({"gemini": bool(GEMINI_API_KEY), "database": bool(DATABASE_URL)})
     })
 
 
@@ -183,7 +212,7 @@ def static_files(path):
     return send_from_directory('.', path)
 
 
-init_firestore()
+init_db()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
