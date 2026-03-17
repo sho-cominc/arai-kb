@@ -141,6 +141,7 @@ def list_docs():
         traceback.print_exc()
         return jsonify({"error": "DB read failed: " + str(e)}), 500
 @app.route('/api/docs', methods=['POST'])
+
 def create_doc():
     if not DATABASE_URL:
         return jsonify({"error": "DATABASE_URL not configured"}), 503
@@ -179,6 +180,7 @@ def create_doc():
         return jsonify({"error": "DB write failed: " + str(e)}), 500
     return jsonify({"id": doc_id, "ok": True})
 @app.route('/api/docs/<doc_id>', methods=['DELETE'])
+
 def delete_doc(doc_id):
     if not DATABASE_URL:
         return jsonify({"error": "DATABASE_URL not configured"}), 503
@@ -194,12 +196,10 @@ def delete_doc(doc_id):
         traceback.print_exc()
         return jsonify({"error": "DB delete failed: " + str(e)}), 500
     return jsonify({"ok": True})
-@app.route('/api/health', methods=['GET'])
+
+@app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({
-        'gemini': bool(GEMINI_API_KEY),
     return jsonify({"gemini": bool(GEMINI_API_KEY), "database": bool(DATABASE_URL)})
-    })
 
 
 @app.route('/')
