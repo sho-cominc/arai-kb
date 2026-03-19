@@ -14,19 +14,23 @@ db_conn = None
 
 
 def get_db():
+    import psycopg2
     global db_conn
     try:
-        if db_conn is None or db_conn.closed:
-            import psycopg2
+        if db_conn is not None:
+            try:
+                db_conn.cursor().execute("SELECT 1")
+            except Exception:
+                db_conn = None
+        if db_conn is None:
             db_conn = psycopg2.connect(DATABASE_URL)
             db_conn.autocommit = True
         return db_conn
     except Exception as e:
         print("[ERROR] DB connection failed: " + str(e))
         traceback.print_exc()
+        db_conn = None
         return None
-
-
 def init_db():
     if not DATABASE_URL:
         print("[WARN] DATABASE_URL not set -- document persistence disabled")
