@@ -38,7 +38,18 @@ async function callAI(messages, system, maxTokens) {
   var raw = data.content && data.content[0] && data.content[0].text || '{}';
   var parsed;
   try {
-    parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    var cleaned = raw.replace(/```json|```/g, '').trim();
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch (e1) {
+      // Try to extract the first {...} block from the response
+      var match = cleaned.match(/\{[\s\S]*\}/);
+      if (match) {
+        parsed = JSON.parse(match[0]);
+      } else {
+        throw e1;
+      }
+    }
   } catch (e) {
     console.warn('[callAI] Response is not JSON, using raw text. Response:', raw.slice(0, 200));
     parsed = null;

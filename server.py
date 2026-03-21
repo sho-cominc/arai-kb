@@ -19,11 +19,16 @@ def get_db():
     try:
         if db_conn is not None:
             try:
-                db_conn.cursor().execute("SELECT 1")
+                with db_conn.cursor() as cur:
+                    cur.execute("SELECT 1")
             except Exception:
+                try:
+                    db_conn.close()
+                except Exception:
+                    pass
                 db_conn = None
         if db_conn is None:
-            db_conn = psycopg2.connect(DATABASE_URL)
+            db_conn = psycopg2.connect(DATABASE_URL, connect_timeout=10)
             db_conn.autocommit = True
         return db_conn
     except Exception as e:
