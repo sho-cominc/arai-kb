@@ -115,6 +115,14 @@
             <div class="tc-label">URL（任意）</div>
             <input class="url-input" id="tcUrl" placeholder="https://..." />
           </div>
+          <div>
+            <div class="tc-label">優先度 / Priority</div>
+            <select class="cat-select" id="tcPriority">
+              <option value="high">🔴 High — 最重要・AIが優先参照</option>
+              <option value="normal" selected>🟡 Normal — 通常</option>
+              <option value="low">⚪ Low — 補足資料</option>
+            </select>
+          </div>
           <div class="tc-actions">
             <button class="tc-save" id="tcSaveBtn">💾 保存してAIに反映</button>
             <button class="tc-cancel" id="tcCancelBtn">✕</button>

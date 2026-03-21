@@ -60,6 +60,10 @@ function createDocFromForm() {
     content: pendingDoc.content,
     summary: pendingDoc.summary,
     type: pendingDoc.type,
+    priority: el('tcPriority').value,
+    status: 'active',
+    valid_until: null,
+    notes: '',
   };
 }
 

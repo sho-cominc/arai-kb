@@ -33,7 +33,7 @@ function renderList() {
     updateSidebar(); return;
   }
   container.innerHTML = userDocs.map(function(d) { return '\
-    <div class="dm-item ' + (viewingId === d.id ? 'active' : '') + '" data-doc-id="' + escapeHtml(d.id) + '">\
+    <div class="dm-item ' + (viewingId === d.id ? 'active' : '') + '" data-doc-id="' + escapeHtml(d.id) + '" data-status="' + escapeHtml(d.status || 'active') + '">\
       <div class="dm-item-icon">' + (CAT_ICONS[d.category] || '📄') + '</div>\
       <div class="dm-item-info">\
         <div class="dm-item-title">' + escapeHtml(d.title) + '</div>\
@@ -69,11 +69,16 @@ function viewDoc(id) {
   renderList();
   showDocViewer(true);
   el('docDetailTitle').textContent = d.title;
+  var priorityBadge = { high: '<span class="priority-badge high">🔴 HIGH</span>', low: '<span class="priority-badge low">⚪ LOW</span>', normal: '' };
+  var statusBadge = d.status === 'archived' ? '<span class="priority-badge archived">📦 ARCHIVED</span>' : '';
+  var expiredBadge = (d.valid_until && new Date(d.valid_until) < new Date()) ? '<span class="priority-badge expired">⚠️ EXPIRED ' + d.valid_until + '</span>' : '';
   el('docDetailTags').innerHTML =
+    (priorityBadge[d.priority] || '') + statusBadge + expiredBadge +
     '<span class="tag-pill cat">' + (CAT_ICONS[d.category] || '📄') + ' ' + escapeHtml(d.category) + '</span>' +
     (d.tags || []).map(function(t) { return '<span class="tag-pill">' + escapeHtml(t) + '</span>'; }).join('');
   el('docDetailSource').textContent = d.source ? '📄 ' + d.source : '';
   el('docDetailUrl').innerHTML = d.url ? '🔗 <a href="' + escapeHtml(d.url) + '" target="_blank">' + escapeHtml(d.url) + '</a>' : '';
+  if (d.notes) el('docDetailUrl').innerHTML += '<div class="doc-notes">📝 ' + escapeHtml(d.notes) + '</div>';
   var content = d.content || '';
   var contentEl = el('docDetailContent');
   if (content.startsWith('__IMAGE__:')) {
@@ -94,6 +99,13 @@ function editDoc() {
     return '<option value="' + c + '"' + (d.category === c ? ' selected' : '') + '>' + c + '</option>';
   }).join('');
 
+  var priOpts = ['high','normal','low'].map(function(p) {
+    return '<option value="' + p + '"' + ((d.priority||'normal') === p ? ' selected' : '') + '>' + p + '</option>';
+  }).join('');
+  var staOpts = ['active','archived'].map(function(s) {
+    return '<option value="' + s + '"' + ((d.status||'active') === s ? ' selected' : '') + '>' + s + '</option>';
+  }).join('');
+
   el('docDetail').innerHTML =
     '<div class="edit-form">' +
     '<label>タイトル<input id="editTitle" class="edit-input" value="' + escapeHtml(d.title || '') + '" /></label>' +
@@ -102,6 +114,10 @@ function editDoc() {
     '<div class="tag-add-row"><input id="editTagInput" class="tag-add-input" placeholder="タグを追加..." />' +
     '<button class="tag-add-btn" onclick="editAddTag()">+</button></div></label>' +
     '<label>URL<input id="editUrl" class="edit-input" value="' + escapeHtml(d.url || '') + '" /></label>' +
+    '<label>優先度 / Priority<select id="editPriority" class="edit-input">' + priOpts + '</select></label>' +
+    '<label>ステータス / Status<select id="editStatus" class="edit-input">' + staOpts + '</select></label>' +
+    '<label>有効期限 / Valid Until<input id="editValidUntil" class="edit-input" type="date" value="' + escapeHtml(d.valid_until || '') + '" /></label>' +
+    '<label>スタッフメモ / Notes<textarea id="editNotes" class="edit-input" rows="2" style="resize:vertical">' + escapeHtml(d.notes || '') + '</textarea></label>' +
     '<div class="edit-actions">' +
     '<button class="save-btn" onclick="saveEdit()">保存</button>' +
     '<button class="cancel-btn" onclick="cancelEdit()">キャンセル</button>' +
@@ -134,6 +150,10 @@ async function saveEdit() {
   d.category = el('editCategory').value;
   d.tags = editingTags.slice();
   d.url = el('editUrl').value.trim();
+  d.priority = el('editPriority').value;
+  d.status = el('editStatus').value;
+  d.valid_until = el('editValidUntil').value || null;
+  d.notes = el('editNotes').value.trim();
   try {
     var res = await fetch('/api/docs', {
       method: 'POST',

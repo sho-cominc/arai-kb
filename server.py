@@ -55,6 +55,10 @@ def init_db():
                 "source TEXT, url TEXT, content TEXT, summary TEXT, type TEXT,"
                 "created_at TIMESTAMPTZ DEFAULT NOW())"
             )
+            cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'normal'")
+            cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active'")
+            cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS valid_until DATE DEFAULT NULL")
+            cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''")
         print("[OK] Database initialized")
     except Exception as e:
         print("[ERROR] DB init failed: " + str(e))
@@ -135,7 +139,8 @@ def list_docs():
             return jsonify({"error": "DB connection failed"}), 500
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id, title, category, tags, source, url, content, summary, type, created_at"
+                "SELECT id, title, category, tags, source, url, content, summary, type, created_at,"
+                " priority, status, valid_until, notes"
                 " FROM documents ORDER BY created_at DESC"
             )
             rows = cur.fetchall()
@@ -147,6 +152,10 @@ def list_docs():
                 "source": row[4], "url": row[5], "content": row[6],
                 "summary": row[7], "type": row[8],
                 "created_at": row[9].isoformat() if row[9] else None,
+                "priority": row[10] or "normal",
+                "status": row[11] or "active",
+                "valid_until": row[12].isoformat() if row[12] else None,
+                "notes": row[13] or "",
             })
         return jsonify(result)
     except Exception as e:
@@ -168,12 +177,14 @@ def create_doc():
             return jsonify({"error": "DB connection failed"}), 500
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO documents (id, title, category, tags, source, url, content, summary, type)"
-                " VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)"
+                "INSERT INTO documents (id, title, category, tags, source, url, content, summary, type, priority, status, valid_until, notes)"
+                " VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
                 " ON CONFLICT (id) DO UPDATE SET"
                 " title=EXCLUDED.title, category=EXCLUDED.category, tags=EXCLUDED.tags,"
                 " source=EXCLUDED.source, url=EXCLUDED.url, content=EXCLUDED.content,"
-                " summary=EXCLUDED.summary, type=EXCLUDED.type",
+                " summary=EXCLUDED.summary, type=EXCLUDED.type,"
+                " priority=EXCLUDED.priority, status=EXCLUDED.status,"
+                " valid_until=EXCLUDED.valid_until, notes=EXCLUDED.notes",
                 (
                     doc_id,
                     data.get("title", ""),
@@ -184,6 +195,10 @@ def create_doc():
                     data.get("content", ""),
                     data.get("summary", ""),
                     data.get("type", ""),
+                    data.get("priority", "normal"),
+                    data.get("status", "active"),
+                    data.get("valid_until") or None,
+                    data.get("notes", ""),
                 )
             )
         print("[OK] Document saved: " + doc_id)
