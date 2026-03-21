@@ -1,5 +1,6 @@
 var userDocs = [];
 var viewingId = null;
+var editingTags = [];
 
 async function loadDocs() {
   showAiProc('データ読み込み中...');
@@ -80,6 +81,78 @@ function viewDoc(id) {
   } else {
     contentEl.textContent = content.slice(0, 3000) + (content.length > 3000 ? '\n\n[...]' : '');
   }
+}
+
+function editDoc() {
+  var d = userDocs.find(function(x) { return x.id === viewingId; });
+  if (!d) return;
+  editingTags = (d.tags || []).slice();
+  setDisplay('docActions', 'none');
+
+  var cats = ['activities','rooms','rates','facilities','faq','tourism','operations','other'];
+  var catOptions = cats.map(function(c) {
+    return '<option value="' + c + '"' + (d.category === c ? ' selected' : '') + '>' + c + '</option>';
+  }).join('');
+
+  el('docDetail').innerHTML =
+    '<div class="edit-form">' +
+    '<label>タイトル<input id="editTitle" class="edit-input" value="' + escapeHtml(d.title || '') + '" /></label>' +
+    '<label>カテゴリ<select id="editCategory" class="edit-input">' + catOptions + '</select></label>' +
+    '<label>タグ<div class="edit-tag-row" id="editTagChips"></div>' +
+    '<div class="tag-add-row"><input id="editTagInput" class="tag-add-input" placeholder="タグを追加..." />' +
+    '<button class="tag-add-btn" onclick="editAddTag()">+</button></div></label>' +
+    '<label>URL<input id="editUrl" class="edit-input" value="' + escapeHtml(d.url || '') + '" /></label>' +
+    '<div class="edit-actions">' +
+    '<button class="save-btn" onclick="saveEdit()">保存</button>' +
+    '<button class="cancel-btn" onclick="cancelEdit()">キャンセル</button>' +
+    '</div></div>';
+
+  renderEditTags();
+
+  el('editTagInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') editAddTag(); });
+}
+
+function renderEditTags() {
+  el('editTagChips').innerHTML = editingTags.map(function(t, i) {
+    return '<span class="tag-chip">' + escapeHtml(t) + '<button class="remove-tag" onclick="editRemoveTag(' + i + ')">×</button></span>';
+  }).join('');
+}
+
+function editAddTag() {
+  var input = el('editTagInput');
+  var val = input.value.trim();
+  if (val && !editingTags.includes(val)) { editingTags.push(val); renderEditTags(); }
+  input.value = '';
+}
+
+function editRemoveTag(i) { editingTags.splice(i, 1); renderEditTags(); }
+
+async function saveEdit() {
+  var d = userDocs.find(function(x) { return x.id === viewingId; });
+  if (!d) return;
+  d.title = el('editTitle').value.trim() || d.title;
+  d.category = el('editCategory').value;
+  d.tags = editingTags.slice();
+  d.url = el('editUrl').value.trim();
+  try {
+    var res = await fetch('/api/docs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(d)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+  } catch (e) {
+    alert('保存に失敗しました: ' + e.message);
+    return;
+  }
+  renderList();
+  viewDoc(viewingId);
+  setDisplay('docActions', 'flex');
+}
+
+function cancelEdit() {
+  viewDoc(viewingId);
+  setDisplay('docActions', 'flex');
 }
 
 async function deleteViewing() {

@@ -45,6 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
   el('tcCancelBtn').addEventListener('click', cancelConfirm);
 
   el('delBtnDoc').addEventListener('click', deleteViewing);
+  el('editBtnDoc').addEventListener('click', editDoc);
 
   el('modalOverlay').addEventListener('click', function(e) { if (e.target === el('modalOverlay')) closeModal(); });
   el('modalCloseBtn').addEventListener('click', closeModal);
@@ -54,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
   el('dmItems').addEventListener('click', function(e) {
     var item = e.target.closest('[data-doc-id]');
     var delBtn = e.target.closest('[data-del-id]');
-    if (delBtn) { e.stopPropagation(); deleteById(delBtn.getAttribute('data-del-id')); return; }
+    if (delBtn) { e.stopPropagation(); if (confirm('削除しますか？')) deleteById(delBtn.getAttribute('data-del-id')); return; }
     if (item) { viewDoc(item.getAttribute('data-doc-id')); }
   });
 

@@ -163,6 +163,14 @@ header{padding:11px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;
 .doc-content-preview{background:var(--paper);border-radius:8px;padding:14px;font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-x:auto;max-height:400px;overflow-y:auto;}
 .doc-actions{display:flex;gap:7px;padding:14px 20px;border-top-width:1px;background:var(--snow);flex-shrink:0;}
 .del-btn-doc{background:none;border-color:var(--danger);padding:7px 14px;color:var(--danger);font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;}
+.edit-btn-doc{background:none;border-color:var(--accent);padding:7px 14px;color:var(--accent);font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;}
+.edit-form{display:flex;flex-direction:column;gap:12px;padding:16px;}
+.edit-form label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);}
+.edit-input{padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'Noto Sans JP',sans-serif;}
+.edit-tag-row{display:flex;flex-wrap:wrap;gap:6px;min-height:28px;}
+.edit-actions{display:flex;gap:8px;margin-top:4px;}
+.save-btn{background:var(--accent);color:#fff;border:none;padding:8px 18px;border-radius:6px;font-size:13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+.cancel-btn{background:none;border:1px solid var(--border);padding:8px 18px;border-radius:6px;font-size:13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
 
 /* MODAL */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center;}
