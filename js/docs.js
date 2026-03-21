@@ -83,9 +83,62 @@ function viewDoc(id) {
   var contentEl = el('docDetailContent');
   if (content.startsWith('__IMAGE__:')) {
     contentEl.innerHTML = '<img src="' + content.slice(10) + '" style="max-width:100%;border-radius:8px;" />';
+  } else if (d.type === 'json') {
+    contentEl.innerHTML = renderJson(content);
   } else {
     contentEl.textContent = content.slice(0, 3000) + (content.length > 3000 ? '\n\n[...]' : '');
   }
+}
+
+function renderJson(text) {
+  var parsed;
+  try { parsed = JSON.parse(text); } catch (e) { return '<pre class="json-pre">' + escapeHtml(text.slice(0, 3000)) + '</pre>'; }
+
+  // Detect: array of objects, or single-key object whose value is array of objects
+  var arr = null;
+  var label = '';
+  if (Array.isArray(parsed) && parsed.length && typeof parsed[0] === 'object') {
+    arr = parsed;
+  } else if (parsed && typeof parsed === 'object') {
+    var keys = Object.keys(parsed);
+    if (keys.length === 1 && Array.isArray(parsed[keys[0]]) && parsed[keys[0]].length && typeof parsed[keys[0]][0] === 'object') {
+      arr = parsed[keys[0]];
+      label = keys[0];
+    }
+  }
+
+  if (arr) return renderJsonTable(arr, label);
+  return renderJsonPre(parsed);
+}
+
+function renderJsonTable(arr, label) {
+  var keys = [];
+  arr.forEach(function(row) { Object.keys(row).forEach(function(k) { if (keys.indexOf(k) === -1) keys.push(k); }); });
+  var h = (label ? '<div class="json-table-label">' + escapeHtml(label) + '</div>' : '');
+  h += '<div style="overflow-x:auto"><table class="json-table"><thead><tr>';
+  keys.forEach(function(k) { h += '<th>' + escapeHtml(k) + '</th>'; });
+  h += '</tr></thead><tbody>';
+  arr.forEach(function(row, i) {
+    h += '<tr' + (i % 2 ? ' class="alt"' : '') + '>';
+    keys.forEach(function(k) {
+      var v = row[k];
+      var display = v === null || v === undefined ? '' : Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : String(v);
+      h += '<td>' + escapeHtml(display) + '</td>';
+    });
+    h += '</tr>';
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
+
+function renderJsonPre(parsed) {
+  var text = JSON.stringify(parsed, null, 2);
+  var highlighted = escapeHtml(text)
+    .replace(/(&quot;[^&]*&quot;)\s*:/g, '<span class="json-key">$1</span>:')
+    .replace(/:\s*(&quot;[^&]*&quot;)/g, ': <span class="json-str">$1</span>')
+    .replace(/:\s*(\b\d+\.?\d*\b)/g, ': <span class="json-num">$1</span>')
+    .replace(/:\s*(true|false|null)/g, ': <span class="json-num">$1</span>');
+  return '<pre class="json-pre">' + highlighted + '</pre>';
 }
 
 function editDoc() {
