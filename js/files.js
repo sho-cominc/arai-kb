@@ -50,23 +50,24 @@ function processFile(file) {
       aiTagFile(name, 'json', text);
     };
     reader.readAsText(file, 'UTF-8');
-  } else if (ext === 'pdf') {
+  } else if (ext === 'pdf' || ext === 'jpg' || ext === 'jpeg' || ext === 'png') {
     var formData = new FormData();
     formData.append('file', file);
     fetch('/api/extract', { method: 'POST', body: formData })
       .then(function(res) { return res.json(); })
       .then(function(data) {
         hideAiProc();
-        aiTagFile(name, 'pdf', data.text || '（テキスト抽出できませんでした）');
+        var fileType = (ext === 'pdf') ? 'pdf' : 'image';
+        aiTagFile(name, fileType, data.text || '（テキスト抽出できませんでした）');
       })
       .catch(function(err) {
         hideAiProc();
-        aiTagFile(name, 'pdf', '（テキスト抽出できませんでした）');
+        aiTagFile(name, ext === 'pdf' ? 'pdf' : 'image', '（テキスト抽出できませんでした）');
       });
     return;
   } else {
     hideAiProc();
-    alert('非対応形式: .' + ext + '\n対応: .xlsx .csv .md .txt .pdf .json');
+    alert('非対応形式: .' + ext + '\n対応: .xlsx .csv .md .txt .pdf .json .jpg .jpeg .png');
   }
 }
 

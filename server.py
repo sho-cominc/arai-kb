@@ -214,26 +214,50 @@ def health():
 
 
 @app.route('/api/extract', methods=['POST'])
-def extract_pdf():
+def extract_file():
     if 'file' not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
     f = request.files['file']
-    try:
-        from pypdf import PdfReader
-        reader = PdfReader(BytesIO(f.read()))
-        pages = []
-        for page in reader.pages:
-            text = page.extract_text()
-            if text:
-                pages.append(text.strip())
-        text = '\n\n'.join(pages).strip()
-        if not text:
-            text = '（テキスト抽出できませんでした。スキャンPDFの可能性があります）'
-        return jsonify({"text": text})
-    except Exception as e:
-        print("[ERROR] /api/extract failed: " + str(e))
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+    filename = f.filename or ''
+    ext = filename.rsplit('.', 1)[-1].lower()
+    file_bytes = f.read()
+
+    if ext == 'pdf':
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(BytesIO(file_bytes))
+            pages = [page.extract_text() for page in reader.pages]
+            text = '\n\n'.join(p.strip() for p in pages if p and p.strip())
+            if not text:
+                text = '（テキスト抽出できませんでした。スキャンPDFの可能性があります）'
+            return jsonify({"text": text})
+        except Exception as e:
+            print("[ERROR] PDF extract failed: " + str(e))
+            traceback.print_exc()
+            return jsonify({"error": str(e)}), 500
+
+    elif ext in ('jpg', 'jpeg', 'png'):
+        if not GEMINI_API_KEY:
+            return jsonify({"error": "GEMINI_API_KEY not configured"}), 503
+        try:
+            from PIL import Image as PILImage
+            img = PILImage.open(BytesIO(file_bytes))
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            prompt = (
+                'This image is from a hotel knowledge base. '
+                'Extract ALL text visible in the image. '
+                'If it contains a document or table, reproduce the full content faithfully. '
+                'If it is a photo, describe it in detail in Japanese.'
+            )
+            response = model.generate_content([prompt, img])
+            return jsonify({"text": response.text.strip()})
+        except Exception as e:
+            print("[ERROR] Image extract failed: " + str(e))
+            traceback.print_exc()
+            return jsonify({"error": str(e)}), 500
+
+    else:
+        return jsonify({"error": "Unsupported file type: " + ext}), 400
 
 
 @app.route('/')
