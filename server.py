@@ -4,6 +4,8 @@ import time
 import traceback
 from flask import Flask, request, jsonify, send_from_directory
 from io import BytesIO
+from pypdf import PdfReader
+from PIL import Image as PILImage
 import google.generativeai as genai
 
 app = Flask(__name__, static_folder='.', static_url_path='')
@@ -224,7 +226,6 @@ def extract_file():
 
     if ext == 'pdf':
         try:
-            from pypdf import PdfReader
             reader = PdfReader(BytesIO(file_bytes))
             pages = [page.extract_text() for page in reader.pages]
             text = '\n\n'.join(p.strip() for p in pages if p and p.strip())
@@ -240,7 +241,6 @@ def extract_file():
         if not GEMINI_API_KEY:
             return jsonify({"error": "GEMINI_API_KEY not configured"}), 503
         try:
-            from PIL import Image as PILImage
             img = PILImage.open(BytesIO(file_bytes))
             model = genai.GenerativeModel('gemini-2.5-flash')
             prompt = (

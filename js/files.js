@@ -51,19 +51,14 @@ function processFile(file) {
     };
     reader.readAsText(file, 'UTF-8');
   } else if (ext === 'pdf' || ext === 'jpg' || ext === 'jpeg' || ext === 'png') {
+    var fileType = (ext === 'pdf') ? 'pdf' : 'image';
+    var fallback = '（テキスト抽出できませんでした）';
     var formData = new FormData();
     formData.append('file', file);
     fetch('/api/extract', { method: 'POST', body: formData })
       .then(function(res) { return res.json(); })
-      .then(function(data) {
-        hideAiProc();
-        var fileType = (ext === 'pdf') ? 'pdf' : 'image';
-        aiTagFile(name, fileType, data.text || '（テキスト抽出できませんでした）');
-      })
-      .catch(function(err) {
-        hideAiProc();
-        aiTagFile(name, ext === 'pdf' ? 'pdf' : 'image', '（テキスト抽出できませんでした）');
-      });
+      .then(function(data) { hideAiProc(); aiTagFile(name, fileType, data.text || fallback); })
+      .catch(function() { hideAiProc(); aiTagFile(name, fileType, fallback); });
     return;
   } else {
     hideAiProc();
