@@ -3,6 +3,7 @@ import json
 import time
 import traceback
 from flask import Flask, request, jsonify, send_from_directory
+from io import BytesIO
 import google.generativeai as genai
 
 app = Flask(__name__, static_folder='.', static_url_path='')
@@ -210,6 +211,29 @@ def delete_doc(doc_id):
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"gemini": bool(GEMINI_API_KEY), "database": bool(DATABASE_URL)})
+
+
+@app.route('/api/extract', methods=['POST'])
+def extract_pdf():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    f = request.files['file']
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(BytesIO(f.read()))
+        pages = []
+        for page in reader.pages:
+            text = page.extract_text()
+            if text:
+                pages.append(text.strip())
+        text = '\n\n'.join(pages).strip()
+        if not text:
+            text = '（テキスト抽出できませんでした。スキャンPDFの可能性があります）'
+        return jsonify({"text": text})
+    except Exception as e:
+        print("[ERROR] /api/extract failed: " + str(e))
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/')

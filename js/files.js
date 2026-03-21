@@ -51,22 +51,19 @@ function processFile(file) {
     };
     reader.readAsText(file, 'UTF-8');
   } else if (ext === 'pdf') {
-    reader.onload = function(e) {
-      hideAiProc();
-      var bytes = new Uint8Array(e.target.result);
-      var text = '';
-      try {
-        var raw = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
-        var matches = raw.match(/BT[\s\S]*?ET/g) || [];
-        var ex = matches.map(function(b) {
-          var tjs = b.match(/\((.*?)\)\s*Tj/g) || [];
-          return tjs.map(function(t) { return t.replace(/^\(|\)\s*Tj$/g, ''); }).join(' ');
-        }).join('\n').trim();
-        text = ex || '（テキスト抽出できませんでした。内容を確認し手動で補足してください）';
-      } catch (err) { text = '（テキスト抽出できませんでした）'; }
-      aiTagFile(name, 'pdf', text);
-    };
-    reader.readAsArrayBuffer(file);
+    var formData = new FormData();
+    formData.append('file', file);
+    fetch('/api/extract', { method: 'POST', body: formData })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        hideAiProc();
+        aiTagFile(name, 'pdf', data.text || '（テキスト抽出できませんでした）');
+      })
+      .catch(function(err) {
+        hideAiProc();
+        aiTagFile(name, 'pdf', '（テキスト抽出できませんでした）');
+      });
+    return;
   } else {
     hideAiProc();
     alert('非対応形式: .' + ext + '\n対応: .xlsx .csv .md .txt .pdf .json');
