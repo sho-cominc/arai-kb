@@ -241,16 +241,26 @@ def extract_file():
         if not GEMINI_API_KEY:
             return jsonify({"error": "GEMINI_API_KEY not configured"}), 503
         try:
-            img = PILImage.open(BytesIO(file_bytes))
+            import base64
+            img = PILImage.open(BytesIO(file_bytes)).convert('RGB')
+            # Compress: cap at 1024px wide, JPEG quality 75
+            max_w = 1024
+            if img.width > max_w:
+                img = img.resize((max_w, int(img.height * max_w / img.width)), PILImage.LANCZOS)
+            buf = BytesIO()
+            img.save(buf, format='JPEG', quality=75, optimize=True)
+            image_b64 = 'data:image/jpeg;base64,' + base64.b64encode(buf.getvalue()).decode('utf-8')
+            # Use Gemini to extract/describe content
             model = genai.GenerativeModel('gemini-2.5-flash')
             prompt = (
-                'This image is from a hotel knowledge base. '
-                'Extract ALL text visible in the image. '
-                'If it contains a document or table, reproduce the full content faithfully. '
-                'If it is a photo, describe it in detail in Japanese.'
+                'This image is from a hotel knowledge base document. '
+                'Extract and transcribe ALL text visible exactly as written. '
+                'Reproduce tables as plain text, not markdown. '
+                'If there is no text, describe the visual content in detail in Japanese. '
+                'Do not describe logos or decorative elements unless they contain text.'
             )
             response = model.generate_content([prompt, img])
-            return jsonify({"text": response.text.strip()})
+            return jsonify({"text": response.text.strip(), "image_b64": image_b64})
         except Exception as e:
             print("[ERROR] Image extract failed: " + str(e))
             traceback.print_exc()

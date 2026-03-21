@@ -9,7 +9,8 @@ function buildSys() {
       if (d.source) s += ' [file:' + d.source + ']';
       if (d.url) s += ' [url:' + d.url + ']';
       if (d.summary) s += '\nSummary: ' + d.summary;
-      if (d.content) s += '\nContent:\n' + d.content.slice(0, 2000);
+      var contentText = (d.content || '').startsWith('__IMAGE__:') ? '' : (d.content || '');
+      if (contentText) s += '\nContent:\n' + contentText.slice(0, 2000);
     });
   }
   return s;

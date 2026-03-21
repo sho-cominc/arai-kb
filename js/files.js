@@ -57,8 +57,8 @@ function processFile(file) {
     formData.append('file', file);
     fetch('/api/extract', { method: 'POST', body: formData })
       .then(function(res) { return res.json(); })
-      .then(function(data) { hideAiProc(); aiTagFile(name, fileType, data.text || fallback); })
-      .catch(function() { hideAiProc(); aiTagFile(name, fileType, fallback); });
+      .then(function(data) { hideAiProc(); aiTagFile(name, fileType, data.text || fallback, data.image_b64 || null); })
+      .catch(function() { hideAiProc(); aiTagFile(name, fileType, fallback, null); });
     return;
   } else {
     hideAiProc();

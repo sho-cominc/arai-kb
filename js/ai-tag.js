@@ -6,7 +6,7 @@ function clearPending() {
   pendingTags = [];
 }
 
-async function aiTagFile(filename, type, content) {
+async function aiTagFile(filename, type, content, imageb64) {
   showAiProc(filename);
   var preview = content.slice(0, 1500);
   var prompt = 'You are an AI assistant for a hotel knowledge base called "LOTTE ARAI RESORT".\n\nA staff member just uploaded a file. Read the content and respond ONLY with this JSON (no backticks):\n{\n  "title": "短いわかりやすいタイトル（日本語OK、30文字以内）",\n  "category": "one of: activities | rooms | rates | facilities | faq | tourism | operations | other",\n  "tags": ["tag1","tag2","tag3"],\n  "summary": "2〜3文の日本語要約"\n}\n\nTags should be short keywords (Japanese or English), 3-6 tags, reflecting the content well.\n\nFilename: ' + filename + '\nType: ' + type + '\nContent preview:\n' + preview;
@@ -14,16 +14,17 @@ async function aiTagFile(filename, type, content) {
   try {
     var result = await callAI([{ role: 'user', content: prompt }], '', CONFIG.TAG_MAX_TOKENS);
     var parsed = result.parsed || { title: filename, category: 'other', tags: [], summary: '' };
-    openTagConfirm(filename, type, content, parsed);
+    openTagConfirm(filename, type, content, parsed, imageb64);
   } catch (e) {
     console.error('[aiTagFile] failed:', e);
-    openTagConfirm(filename, type, content, { title: filename, category: 'other', tags: [], summary: '' });
+    openTagConfirm(filename, type, content, { title: filename, category: 'other', tags: [], summary: '' }, imageb64);
   }
 }
 
-function openTagConfirm(filename, type, content, parsed) {
+function openTagConfirm(filename, type, content, parsed, imageb64) {
   hideAiProc();
-  pendingDoc = { filename: filename, type: type, content: content, summary: parsed.summary || '' };
+  var storedContent = imageb64 ? '__IMAGE__:' + imageb64 : content;
+  pendingDoc = { filename: filename, type: type, content: storedContent, summary: parsed.summary || '' };
   pendingTags = parsed.tags || [];
   el('tcTitle').value = parsed.title || filename;
   el('tcCategory').value = parsed.category || 'other';

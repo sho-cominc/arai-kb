@@ -73,8 +73,13 @@ function viewDoc(id) {
     (d.tags || []).map(function(t) { return '<span class="tag-pill">' + escapeHtml(t) + '</span>'; }).join('');
   el('docDetailSource').textContent = d.source ? '📄 ' + d.source : '';
   el('docDetailUrl').innerHTML = d.url ? '🔗 <a href="' + escapeHtml(d.url) + '" target="_blank">' + escapeHtml(d.url) + '</a>' : '';
-  var preview = (d.content || '').slice(0, 3000);
-  el('docDetailContent').textContent = preview + (d.content && d.content.length > 3000 ? '\n\n[...]' : '');
+  var content = d.content || '';
+  var contentEl = el('docDetailContent');
+  if (content.startsWith('__IMAGE__:')) {
+    contentEl.innerHTML = '<img src="' + content.slice(10) + '" style="max-width:100%;border-radius:8px;" />';
+  } else {
+    contentEl.textContent = content.slice(0, 3000) + (content.length > 3000 ? '\n\n[...]' : '');
+  }
 }
 
 async function deleteViewing() {
