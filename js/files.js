@@ -37,6 +37,19 @@ function processFile(file) {
   } else if (ext === 'md' || ext === 'txt') {
     reader.onload = function(e) { hideAiProc(); aiTagFile(name, 'md', e.target.result); };
     reader.readAsText(file, 'UTF-8');
+  } else if (ext === 'json') {
+    reader.onload = function(e) {
+      hideAiProc();
+      var text;
+      try {
+        var parsed = JSON.parse(e.target.result);
+        text = JSON.stringify(parsed, null, 2);
+      } catch (err) {
+        text = e.target.result;
+      }
+      aiTagFile(name, 'json', text);
+    };
+    reader.readAsText(file, 'UTF-8');
   } else if (ext === 'pdf') {
     reader.onload = function(e) {
       hideAiProc();
@@ -56,7 +69,7 @@ function processFile(file) {
     reader.readAsArrayBuffer(file);
   } else {
     hideAiProc();
-    alert('非対応形式: .' + ext + '\n対応: .xlsx .csv .md .txt .pdf');
+    alert('非対応形式: .' + ext + '\n対応: .xlsx .csv .md .txt .pdf .json');
   }
 }
 
