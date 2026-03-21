@@ -28,7 +28,8 @@ def get_db():
                     pass
                 db_conn = None
         if db_conn is None:
-            db_conn = psycopg2.connect(DATABASE_URL, connect_timeout=10)
+            clean_url = DATABASE_URL.split('?')[0]
+            db_conn = psycopg2.connect(clean_url, sslmode='require', connect_timeout=10)
             db_conn.autocommit = True
         return db_conn
     except Exception as e:
