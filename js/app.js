@@ -69,7 +69,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (btn) { removeTag(parseInt(btn.getAttribute('data-tag-index'), 10)); }
   });
 
-  loadDocs();
+  el('sendBtn').disabled = true;
+  el('userInput').placeholder = 'データ読み込み中...';
+  loadDocs().then(function() {
+    el('sendBtn').disabled = false;
+    el('userInput').placeholder = '';
+  });
 
   el('messages').addEventListener('click', function(e) {
     if (e.target.closest('.ref-url a')) return;
