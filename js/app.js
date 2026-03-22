@@ -24,10 +24,6 @@ document.addEventListener('DOMContentLoaded', function() {
     btn.addEventListener('click', function() { askQuick(btn.getAttribute('data-quick')); });
   });
 
-  document.querySelectorAll('.quick-btn[data-builtin]').forEach(function(btn) {
-    btn.addEventListener('click', function() { openBuiltin(btn.getAttribute('data-builtin')); });
-  });
-
   var dropZone = el('dropZone');
   dropZone.addEventListener('dragover', dzOver);
   dropZone.addEventListener('dragleave', dzLeave);
@@ -78,8 +74,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   el('messages').addEventListener('click', function(e) {
     if (e.target.closest('.ref-url a')) return;
-    var ref = e.target.closest('[data-builtin-ref]');
-    if (ref) { openBuiltin(ref.getAttribute('data-builtin-ref')); return; }
     var udRef = e.target.closest('[data-userdoc-ref]');
     if (udRef) { viewDoc(udRef.getAttribute('data-userdoc-ref')); switchView('data'); }
   });

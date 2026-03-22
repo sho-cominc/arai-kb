@@ -127,15 +127,14 @@ function renderAnswer(data) {
     h += '</tbody></table></div>';
   }
 
+  }
   if (data.source) {
     var s = data.source;
-    var isBuiltin = !!BUILTIN[s.sheet];
     var sheetKey = (s.sheet || '').trim().toLowerCase();
     var ud = userDocs.find(function(d) { return (d.title || '').trim().toLowerCase() === sheetKey; });
-    var clickable = isBuiltin || ud;
+    var clickable = !!ud;
     var urlPart = s.url ? '<div class="ref-url">🔗 <a href="' + escapeHtml(s.url) + '" target="_blank">' + escapeHtml(s.url) + '</a></div>' : '';
     h += '<div class="source-ref' + (clickable ? '' : ' no-click') + '"' +
-      (isBuiltin ? ' data-builtin-ref="' + escapeHtml(s.sheet) + '"' : '') +
       (ud ? ' data-userdoc-ref="' + escapeHtml(ud.id) + '"' : '') +
       '>\
       <div class="ref-info">\
