@@ -1,4 +1,4 @@
-var lang = 'ja';
+
 
 var I18N = {
   ja: {

@@ -56,3 +56,11 @@ async function callAI(messages, system, maxTokens) {
   }
   return { raw: raw, parsed: parsed };
 }
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}

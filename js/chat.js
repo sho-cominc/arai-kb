@@ -45,7 +45,6 @@ function buildSys() {
   return s;
 }
 
-var chatHistory = [];
 
 async function sendMessage(text) {
   var input = el('userInput');
@@ -58,7 +57,8 @@ async function sendMessage(text) {
   chatHistory.push({ role: 'user', content: msg });
   try {
     var result = await callAI(chatHistory, buildSys(), CONFIG.CHAT_MAX_TOKENS);
-    chatHistory.push({ role: 'assistant', content: result.raw });
+    chatHistory.push({ role: "assistant", content: result.raw });
+    if (chatHistory.length > CHAT_HISTORY_MAX) chatHistory.splice(0, chatHistory.length - CHAT_HISTORY_MAX);
     var parsed = result.parsed || { answer: result.raw, items: [], table_rows: [], source: null };
     hideThinking(tid);
     renderAnswer(parsed);
@@ -87,13 +87,6 @@ function appendError(text) {
   appendToMessages(d);
 }
 
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 function showThinking() {
   var id = 't' + Date.now(), d = document.createElement('div');

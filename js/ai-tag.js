@@ -1,5 +1,3 @@
-var pendingDoc = null;
-var pendingTags = [];
 
 function clearPending() {
   pendingDoc = null;

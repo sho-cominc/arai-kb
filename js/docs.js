@@ -1,6 +1,3 @@
-var userDocs = [];
-var viewingId = null;
-var editingTags = [];
 
 async function loadDocs() {
   showAiProc('データ読み込み中...');
@@ -23,7 +20,7 @@ async function loadDocs() {
 
 function showLoadError(msg) {
   var container = el('dmItems');
-  container.innerHTML = '<div class="dm-empty" style="color:#c0392b">⚠️ ' + escapeHtml(msg) + '<br><small>環境変数 FIREBASE_CREDENTIALS を確認してください</small></div>';
+  container.innerHTML = '<div class="dm-empty" style="color:#c0392b">⚠️ ' + escapeHtml(msg) + '<br><small>環境変数 DATABASE_URL を確認してください</small></div>';
 }
 
 function renderList() {
