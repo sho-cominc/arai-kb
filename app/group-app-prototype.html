@@ -554,9 +554,45 @@ function ttView(){
 }
 /* ---------- カレンダー ---------- */
 let calMonth = (()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`})();
+let calMode = "stay";   // "stay"=団体別(滞在) / "venue"=会場別
+function inHouse(c,y,m,d){  // その日に館内にいるか(C/I<=日<C/O、日帰りはC/I当日)
+  if(!c.ci) return false;
+  const dt=new Date(y,m-1,d), s=new Date(c.ci), e=c.co?new Date(c.co):null;
+  if(!e||e.getTime()===s.getTime()) return dt.getTime()===s.getTime();
+  return dt>=s && dt<e;
+}
 function calView(){
   const [y,m]=calMonth.split("-").map(Number);
   const days=new Date(y,m,0).getDate();
+  const wd=["日","月","火","水","木","金","土"];
+  const header=`<div class="card no-print" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn sub" onclick="shiftMonth(-1)">←</button>
+      <b style="font-size:16px">${y}年${m}月</b>
+      <button class="btn sub" onclick="shiftMonth(1)">→</button>
+      <span style="flex:1"></span>
+      <button class="btn ${calMode==="stay"?"":"sub"}" onclick="calMode='stay';render()">団体別</button>
+      <button class="btn ${calMode==="venue"?"":"sub"}" onclick="calMode='venue';render()">会場別</button>
+    </div>`;
+  if(calMode==="stay"){
+    let rows="";
+    for(let d=1; d<=days; d++){
+      const w=new Date(y,m-1,d).getDay();
+      const cs=db.cases.filter(c=>c.status!=="キャンセル"&&inHouse(c,y,m,d));
+      const tot=cs.reduce((s,c)=>s+(pax(c)||0),0);
+      rows+=`<tr>
+        <td class="dt ${w===0||w===6?"wend":""}">${m}/${d}(${wd[w]})</td>
+        <td class="dt ${w===0||w===6?"wend":""}" style="text-align:right">${cs.length?cs.length+"組 "+(tot?tot+"名":""):""}</td>
+        <td class="${cs.length?"busy":""}">${cs.map(c=>{
+          const isCI=c.ci&&new Date(c.ci).getTime()===new Date(y,m-1,d).getTime();
+          return `<a href="#" onclick="go('edit','${c.id}');return false" style="color:inherit;white-space:nowrap">
+            <span class="chip s-${c.status}" style="font-size:10.5px">${c.status}</span>
+            ${esc(c.group||c.company||"?")}${pax(c)?` ${pax(c)}名`:""}${isCI?" 🔑IN":""}${c.venue?` 🏛${esc(c.venue)}`:""}</a>`;
+        }).join("<br>")}</td>
+      </tr>`;
+    }
+    return `${header}<div class="card tblwrap"><table class="tbl calgrid">
+      <tr><th>日付</th><th style="width:80px">在館</th><th>利用団体(タップで案件へ / 🔑IN=到着日 / 🏛=会場利用)</th></tr>${rows}</table></div>`;
+  }
   const occupied={}; // "date|venue" -> [case,...]
   db.cases.filter(c=>c.status!=="キャンセル"&&c.ci&&c.venue).forEach(c=>{
     const s=new Date(c.ci), e=c.co?new Date(c.co):new Date(c.ci);
@@ -566,7 +602,6 @@ function calView(){
       if(d>=e) break;
     }
   });
-  const wd=["日","月","火","水","木","金","土"];
   let rows="";
   for(let d=1; d<=days; d++){
     const date=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
@@ -580,12 +615,10 @@ function calView(){
       }).join("")}
     </tr>`;
   }
-  return `<div class="card no-print" style="display:flex;gap:8px;align-items:center">
-      <button class="btn sub" onclick="shiftMonth(-1)">←</button>
-      <b style="font-size:16px">${y}年${m}月</b>
-      <button class="btn sub" onclick="shiftMonth(1)">→</button>
-      <span style="font-size:12px;color:var(--sub)">赤=ダブルブッキング</span></div>
-    <div class="card tblwrap"><table class="tbl calgrid">
+  return `${header}
+    <div class="card tblwrap">
+      <div style="font-size:12px;color:var(--sub);margin-bottom:6px">赤=ダブルブッキング</div>
+      <table class="tbl calgrid">
       <tr><th>日付</th>${M.venues.map(v=>`<th>${v}</th>`).join("")}</tr>${rows}</table></div>`;
 }
 function shiftMonth(n){ const [y,m]=calMonth.split("-").map(Number);
