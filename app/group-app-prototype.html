@@ -112,6 +112,31 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px}
 .tblwrap{overflow-x:auto}
 .amount{font-variant-numeric:tabular-nums;text-align:right;padding:6px 8px;white-space:nowrap}
 
+/* 料金ランクの月グリッド(元のExcelと見比べて照合するための表示) */
+.rkgrid{border-collapse:collapse;width:100%;table-layout:fixed}
+.rkgrid th{background:var(--chip);font-size:11px;padding:3px;border:1px solid var(--line)}
+.rkgrid th.wend{color:var(--warn)}
+.rkcell{border:1px solid var(--line);text-align:center;padding:3px 0;cursor:pointer;height:44px;vertical-align:middle}
+.rkcell .dnum{font-size:10px;color:var(--sub);line-height:1}
+.rkcell .rk{font-size:15px;font-weight:800;line-height:1.1}
+.rkcell.rk-empty{background:transparent;border-color:transparent;cursor:default}
+.rkcell.rk-none .rk{color:var(--sub);font-weight:400}
+.rk-S{background:#f6dede;color:#8e2020}
+.rk-A{background:#fbe6cf;color:#8a4b12}
+.rk-B{background:#fbf4cd;color:#7a6410}
+.rk-C{background:#dcefdc;color:#245c2a}
+.rk-D{background:#d8e6f5;color:#1d4e79}
+@media (prefers-color-scheme: dark){
+  .rk-S{background:#4a2222;color:#f0b9b9} .rk-A{background:#4a3520;color:#f0cba0}
+  .rk-B{background:#454020;color:#eee0a0} .rk-C{background:#223d26;color:#a9d9ae}
+  .rk-D{background:#1f3446;color:#a8cae8}
+}
+:root[data-theme="dark"] .rk-S{background:#4a2222;color:#f0b9b9}
+:root[data-theme="dark"] .rk-A{background:#4a3520;color:#f0cba0}
+:root[data-theme="dark"] .rk-B{background:#454020;color:#eee0a0}
+:root[data-theme="dark"] .rk-C{background:#223d26;color:#a9d9ae}
+:root[data-theme="dark"] .rk-D{background:#1f3446;color:#a8cae8}
+
 /* calendar */
 .calgrid th,.calgrid td{font-size:12px}
 .calgrid td{padding:4px 6px;min-width:90px}
@@ -765,6 +790,92 @@ function bulkRank(kind,v){
   });
   render();
 }
+/* タップでランクを送る(空→S→A→B→C→D→空)。グリッド上で素早く塗れる */
+function cycleRank(key){
+  const i=RANKS.indexOf(db.rates.cal[key]||"");
+  setRank(key, i<0 ? RANKS[0] : (RANKS[i+1]||""));
+  render();
+}
+/* 月グリッド(7列)。元の料金表Excelと見比べて照合するための表示 */
+function rankGrid(y,m){
+  const first=new Date(y,m-1,1).getDay(), days=new Date(y,m,0).getDate();
+  const cells=[];
+  for(let i=0;i<first;i++) cells.push(null);
+  for(let d=1;d<=days;d++) cells.push(d);
+  while(cells.length%7) cells.push(null);
+  let rows="";
+  for(let i=0;i<cells.length;i+=7){
+    rows += "<tr>" + cells.slice(i,i+7).map(d=>{
+      if(!d) return `<td class="rkcell rk-empty"></td>`;
+      const key=dayKey(new Date(y,m-1,d)), r=db.rates.cal[key]||"";
+      return `<td class="rkcell ${r?"rk-"+r:"rk-none"}" onclick="cycleRank('${key}')">
+        <div class="dnum">${d}</div><div class="rk">${r||"−"}</div></td>`;
+    }).join("") + "</tr>";
+  }
+  return `<table class="rkgrid"><tr>${
+    WD.map((w,i)=>`<th class="${i%6===0?"wend":""}">${w}</th>`).join("")}</tr>${rows}</table>`;
+}
+/* ---------- 正規化形式(中間フォーマット)での取り込み・書き出し ----------
+   人が見るための月グリッドExcelは機械が読むと事故るため、必ず「1行1データ」に
+   落としてから取り込む。受け付ける形式は次の2つだけ:
+     2026-08-15,A            … 日付,ランク
+     Superior Twin,A,14960   … 部屋タイプ,ランク,単価                        */
+let importText="";
+function parseRateText(text){
+  const cal={}, table={}, bad=[];
+  let calN=0, tblN=0;
+  text.trim().split(/\r?\n/).forEach((line,idx)=>{
+    const s=line.trim();
+    if(!s || /^(日付|部屋|#|\/\/)/.test(s)) return;          // 見出し・コメント行は飛ばす
+    const [a,b,c]=s.split(/[,\t]/).map(x=>(x||"").trim());
+    const dm=(a||"").match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+    const rank=(b||"").toUpperCase();
+    if(dm){
+      if(!RANKS.includes(rank)) return bad.push(`${idx+1}行: ランク「${b}」は未知`);
+      cal[`${dm[1]}-${pad2(+dm[2])}-${pad2(+dm[3])}`]=rank; calN++; return;
+    }
+    if(a && RANKS.includes(rank) && c!==undefined && c!=="" && !isNaN(N(c))){
+      if(!M.rooms.includes(a)) return bad.push(`${idx+1}行: 部屋タイプ「${a}」は一覧にない`);
+      (table[a]=table[a]||{})[rank]=String(N(c)); tblN++; return;
+    }
+    bad.push(`${idx+1}行: 形式が読めません — ${s.slice(0,30)}`);
+  });
+  return {cal,table,calN,tblN,bad};
+}
+function previewImport(t){
+  importText=t;
+  const r=parseRateText(t), el=document.getElementById("impInfo");
+  if(!el) return;
+  const dates=Object.keys(r.cal).sort();
+  el.innerHTML = !t.trim() ? "" : `
+    <div style="font-size:12px;margin-top:6px">
+      <b>ランク ${r.calN}日分</b>${dates.length?`(${md(dates[0])}〜${md(dates[dates.length-1])})`:""} /
+      <b>料金 ${r.tblN}件</b>
+      ${r.bad.length?`<div style="color:var(--danger);margin-top:4px">⚠ 読めない行 ${r.bad.length}件<br>${
+        r.bad.slice(0,5).map(esc).join("<br>")}${r.bad.length>5?"<br>…":""}</div>`:
+        '<span style="color:var(--accent)"> ✓ すべて読めました</span>'}
+    </div>`;
+}
+function applyImport(){
+  const r=parseRateText(importText);
+  if(!r.calN && !r.tblN) return alert("取り込めるデータがありません");
+  Object.assign(db.rates.cal, r.cal);
+  for(const k in r.table) db.rates.table[k]=Object.assign(db.rates.table[k]||{}, r.table[k]);
+  save(); importText="";
+  alert(`取り込みました(ランク${r.calN}日分・料金${r.tblN}件)。\n月グリッドで元の表と見比べて確認してください。`);
+  render();
+}
+function exportRates(){
+  const lines=["# 日付,ランク"];
+  Object.keys(db.rates.cal).sort().forEach(k=>lines.push(`${k},${db.rates.cal[k]}`));
+  lines.push("# 部屋タイプ,ランク,単価");
+  Object.keys(db.rates.table).forEach(room=>RANKS.forEach(r=>{
+    const v=db.rates.table[room][r]; if(v) lines.push(`${room},${r},${v}`);
+  }));
+  const blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="料金設定.csv"; a.click();
+}
 function setRate(room,rank,v){
   db.rates.table[room]=db.rates.table[room]||{};
   if(v) db.rates.table[room][rank]=v; else delete db.rates.table[room][rank];
@@ -773,13 +884,7 @@ function setRate(room,rank,v){
 function rateView(){
   const [y,m]=curYM(), days=new Date(y,m,0).getDate();
   const unset=[];
-  const cal=eachDay(y,m,({d,key,w,wend})=>{
-    const cur=db.rates.cal[key]||"";
-    if(!cur) unset.push(d);
-    return `<tr><td class="dt ${wend?"wend":""}">${m}/${d}(${WD[w]})</td>
-      <td>${RANKS.map(r=>`<button class="btn ${cur===r?"":"sub"}" style="padding:4px 10px;margin-right:4px"
-        onclick="setRank('${key}','${cur===r?"":r}');render()">${r}</button>`).join("")}</td></tr>`;
-  });
+  eachDay(y,m,({d,key})=>{ if(!db.rates.cal[key]) unset.push(d); return ""; });
   const sel=`<select id="bulkRank" style="width:auto">${RANKS.map(r=>`<option>${r}</option>`).join("")}</select>`;
   /* ランクは泊ごとに要るので、月内の欠けと、それに当たる案件を明示する */
   const affected=activeCases().filter(c=>c.ci&&stayRanks(c).some(r=>!r.rank));
@@ -790,9 +895,26 @@ function rateView(){
     ${affected.length?`<div style="font-weight:400;margin-top:4px">ランク未設定の泊を含む案件が ${affected.length}件: ${
       affected.slice(0,4).map(c=>caseLink(c)).join("・")}${affected.length>4?" ほか":""}</div>`:""}
   </div>`;
-  return `<div class="card">
+  return `<details class="sec no-print"><summary>📥 料金データの取り込み / 書き出し</summary><div class="body">
+    <div class="hint" style="margin-bottom:6px">
+      元の料金表Excelは人が見る形(月グリッド・色分け・期間まとめ)なので、そのままでは誤読の元になります。
+      <b>下の「1行1データ」形式に落としてから</b>貼り付けてください。
+    </div>
+    <pre style="background:var(--chip);padding:8px;border-radius:8px;font-size:11.5px;overflow-x:auto;margin:0 0 6px">2026-08-15,A
+2026-08-16,B
+Superior Twin,A,14960
+Superior Twin,B,12000</pre>
+    <textarea rows="5" placeholder="ここに貼り付け(# で始まる行と見出し行は無視します)"
+      oninput="previewImport(this.value)">${esc(importText)}</textarea>
+    <div id="impInfo"></div>
+    <div class="btnrow">
+      <button class="btn" onclick="applyImport()">取り込む</button>
+      <button class="btn sub" onclick="exportRates()">現在の設定をCSVで書き出す</button>
+    </div>
+  </div></details>
+  <div class="card">
     <h2 style="font-size:15px;margin-bottom:6px">💴 部屋料金表(部屋タイプ × ランク・1室1泊)</h2>
-    <div class="hint" style="margin-bottom:8px">お手元の料金表Excelの値をここに登録(またはExcelを送ってもらえれば取り込みます)</div>
+    <div class="hint" style="margin-bottom:8px">直接入力するか、上の取り込みから登録できます</div>
     <div class="tblwrap"><table class="tbl">
       <tr><th>部屋タイプ</th>${RANKS.map(r=>`<th style="width:80px">${r}</th>`).join("")}</tr>
       ${M.rooms.map(room=>`<tr><td class="rowlab">${room}</td>
@@ -801,7 +923,10 @@ function rateView(){
     </table></div></div>
   <div class="card">
     <h2 style="font-size:15px;margin-bottom:6px">📅 料金ランクカレンダー(日ごと)</h2>
-    <div class="hint" style="margin-bottom:8px">ランクは<b>1泊ずつ</b>必要です。1日でも欠けるとその日程は自動料金が出ません</div>
+    <div class="hint" style="margin-bottom:8px">
+      ランクは<b>1泊ずつ</b>必要です(1日でも欠けるとその日程は自動料金が出ません)。
+      元のExcelと同じ月表示なので、<b>並べて目視で照合できます</b>。セルをタップするとランクが送られます。
+    </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
       ${monthNav()}
       <span style="flex:1"></span>
@@ -811,8 +936,7 @@ function rateView(){
       <button class="btn sub" onclick="bulkRank('wend',document.getElementById('bulkRank').value)">土日</button>
     </div>
     ${coverage}
-    <div class="tblwrap"><table class="tbl calgrid">
-      <tr><th>日付</th><th>ランク(タップで選択・もう一度で解除)</th></tr>${cal}</table></div>
+    ${rankGrid(y,m)}
   </div>`;
 }
 const backBar = c => `<div class="btnrow no-print">
