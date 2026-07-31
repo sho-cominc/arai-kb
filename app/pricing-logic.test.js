@@ -8,8 +8,9 @@ const html = fs.readFileSync(path.join(__dirname, "group-app-prototype.html"), "
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 
 // 本体から純粋関数だけを取り出す(DOM に触る部分は読み込まない)
-const NAMES = ["N","yen","stayDates","stayRanks","autoRoomRate","nightBreakdown",
-               "autoBlockReason","nights","roomLines"];
+const NAMES = ["N","yen","pad2","dayKey","monthKey","md","stayDates","stayRanks",
+               "autoRoomRate","nightBreakdown","autoBlockReason","nights",
+               "priceRoom","roomLines"];
 const src = NAMES.map(n => {
   const fn = script.match(new RegExp(`^function ${n}\\(([\\s\\S]*?)\\n\\}`, "m"));
   if (fn) return fn[0];
@@ -65,6 +66,13 @@ T("手動フラグが立つ", roomLines(c)[0].manual, true);
 c = { ci: "2026-08-15", co: "2026-08-17", rankOv: { "2026-08-15": "B" }, roomRows: [room("Superior Twin", 10)] };
 T("1泊目をBに上書き → B+B = 24,000/室", autoRoomRate(c, "Superior Twin").total, 24000);
 T("上書き後の金額 240,000", roomLines(c)[0].amt, 240000);
+
+console.log("\n[見積書に載せる根拠 — 手動料金に自動ラベルを付けない]");
+c = { ci: "2026-08-15", co: "2026-08-17", rankOv: {}, roomRows: [room("Superior Twin", 10, 20000)] };
+T("手動時は autoApplied なし(見積に『自動』と出さない)", roomLines(c)[0].autoApplied, null);
+T("手動時も auto は参考表示用に残る", !!roomLines(c)[0].auto, true);
+c = { ci: "2026-08-15", co: "2026-08-17", rankOv: {}, roomRows: [room("Superior Twin", 10)] };
+T("自動時は autoApplied にラベル", roomLines(c)[0].autoApplied.label, "ランクA→B 自動");
 
 console.log("\n[1泊でも欠けたら自動計算しない]");
 c = { ci: "2026-08-15", co: "2026-08-19", rankOv: {}, roomRows: [room("Superior Twin", 10)] };

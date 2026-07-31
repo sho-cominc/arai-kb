@@ -186,13 +186,30 @@ let db = JSON.parse(localStorage.getItem(DB_KEY) || "null") || { cases: [], seq:
 db.rates = db.rates || { cal: {}, table: {} };   // cal: {"2026-08-15":"A"} / table: {部屋タイプ:{ランク:単価}}
 const save = () => localStorage.setItem(DB_KEY, JSON.stringify(db));
 const RANKS = ["S","A","B","C","D"];
-/* 日程の各泊のランクと、部屋タイプの1室あたり(全泊計)自動料金 */
+const WD = ["日","月","火","水","木","金","土"];
+/* ---------- 日付ユーティリティ(表記ゆれを作らないため必ずこれを通す) ---------- */
+const pad2 = n => String(n).padStart(2,"0");
+const dayKey = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const monthKey = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}`;
+const md = v => { const d = v instanceof Date ? v : new Date(v); return `${d.getMonth()+1}/${d.getDate()}`; };
+/* 月内の各日を巡回して文字列を組み立てる(カレンダー3種で共用) */
+function eachDay(y,m,fn){
+  const days=new Date(y,m,0).getDate();
+  let out="";
+  for(let d=1; d<=days; d++){
+    const dt=new Date(y,m-1,d);
+    out+=fn({d, dt, key:dayKey(dt), w:dt.getDay(), wend:dt.getDay()%6===0});
+  }
+  return out;
+}
+/* この案件が占有する泊(=日付キーの配列)。滞在判定はすべてこの1関数に集約する。
+   C/O当日は含まない。日帰り(C/O未入力またはC/O=C/I)はC/I当日のみ。 */
 function stayDates(c){
   if(!c.ci) return [];
-  const out=[], s=new Date(c.ci), e=c.co?new Date(c.co):null;
+  const s=new Date(c.ci), e=c.co?new Date(c.co):null;
   if(!e||e.getTime()<=s.getTime()) return [c.ci];
-  for(let d=new Date(s); d<e; d.setDate(d.getDate()+1))
-    out.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);
+  const out=[];
+  for(let d=new Date(s); d<e; d.setDate(d.getDate()+1)) out.push(dayKey(d));
   return out;
 }
 /* 泊ごとのランク: 案件側の手動上書き > 料金カレンダー */
@@ -223,15 +240,14 @@ function autoRoomRate(c,type){
 /* 泊ごとの内訳文字列: 8/15 A ¥14,960 + 8/16 B ¥12,000 */
 function nightBreakdown(auto){
   if(!auto) return "";
-  return auto.nights.map(n=>{const d=new Date(n.date);
-    return `${d.getMonth()+1}/${d.getDate()} ${n.rank} ${yen(n.price)}`}).join(" + ");
+  return auto.nights.map(n=>`${md(n.date)} ${n.rank} ${yen(n.price)}`).join(" + ");
 }
 /* 自動化を阻んでいる原因を泊ごとに説明 */
 function autoBlockReason(c,type){
   const ds=stayRanks(c);
   if(!ds.length) return "日程を入れてください";
   const noRank=ds.filter(d=>!d.rank), noPrice=ds.filter(d=>d.rank&&!(db.rates.table[type]||{})[d.rank]);
-  const fmt=a=>a.map(x=>{const d=new Date(x.date);return `${d.getMonth()+1}/${d.getDate()}`}).join("・");
+  const fmt=a=>a.map(x=>md(x.date)).join("・");
   if(noRank.length) return `${fmt(noRank)} のランク未設定`;
   if(noPrice.length) return `${fmt(noPrice)}(ランク${noPrice.map(x=>x.rank).join("・")})の料金未登録`;
   return "手入力を";
@@ -258,18 +274,21 @@ const nights = c => (c.ci&&c.co) ? Math.round((new Date(c.co)-new Date(c.ci))/86
 function blockCode(c){
   if(!c.ci||!c.abbr) return "";
   const d=new Date(c.ci);
-  const mmdd=String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");
-  return mmdd + c.abbr.toUpperCase().padEnd(4,"X").slice(0,4) + "01";
+  return pad2(d.getMonth()+1) + pad2(d.getDate()) + c.abbr.toUpperCase().padEnd(4,"X").slice(0,4) + "01";
 }
 const fmtD = (s,opt) => s ? new Date(s).toLocaleDateString("ja-JP",opt||{month:"numeric",day:"numeric",weekday:"short"}) : "";
-function mealDate(c,day){ if(!c.ci) return ""; const d=new Date(c.ci); d.setDate(d.getDate()+day-1); return `(${d.getMonth()+1}/${d.getDate()})`; }
+function mealDate(c,day){ if(!c.ci) return ""; const d=new Date(c.ci); d.setDate(d.getDate()+day-1); return `(${md(d)})`; }
+/* 部屋1行の料金判定。表示(入力画面)と集計(見積)が必ず同じ値を使うよう、計算はここだけ。
+   手入力があればそれが優先。auto は手入力時も参考表示(プレースホルダ)に使うので常に返す。 */
+function priceRoom(c,r){
+  const manual = N(r.rate)>0;
+  const auto = r.type ? autoRoomRate(c,r.type) : null;   // 参考表示用。手入力中も算出する
+  const autoApplied = manual ? null : auto;              // 実際に金額へ反映された自動料金だけ
+  const perRoom = manual ? N(r.rate)*N(nights(c)||1) : (auto?auto.total:0);
+  return {manual, auto, autoApplied, perRoom, amt:N(r.n)*perRoom};
+}
 function roomLines(c){
-  return c.roomRows.filter(r=>r.type&&N(r.n)).map(r=>{
-    const manual = N(r.rate)>0;
-    const auto = manual ? null : autoRoomRate(c,r.type);
-    const perRoom = manual ? N(r.rate)*N(nights(c)||1) : (auto?auto.total:0);
-    return {...r, perRoom, auto, manual, amt:N(r.n)*perRoom};
-  });
+  return c.roomRows.filter(r=>r.type&&N(r.n)).map(r=>({...r, ...priceRoom(c,r)}));
 }
 function itemLines(c){ return c.items.filter(i=>i.desc&&(N(i.price)||N(i.qty))).map(i=>({...i, amt:N(i.price)*N(i.qty)})); }
 function totals(c){
@@ -417,15 +436,14 @@ function editView(){
         <b style="color:${miss?"var(--warn)":"var(--accent)"}">この日程の料金ランク</b>
         <span style="color:var(--sub)"> — 料金カレンダーから自動。変更したい泊は選び直せます</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-        ${rs.map(r=>{const d=new Date(r.date);
-          return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--panel);
+        ${rs.map(r=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--panel);
             border:1px solid ${r.ov?"var(--warn)":"var(--line)"};border-radius:8px;padding:3px 6px">
-            <b style="font-size:11px">${d.getMonth()+1}/${d.getDate()}</b>
+            <b style="font-size:11px">${md(r.date)}</b>
             <select style="width:auto;padding:2px 4px;font-size:12px" onchange="setRankOv('${c.id}','${r.date}',this.value)">
               <option value="">${r.calRank?"自動("+r.calRank+")":"未設定⚠"}</option>
               ${RANKS.map(k=>`<option ${r.ov&&r.rank===k?"selected":""}>${k}</option>`).join("")}
             </select>${r.ov?'<span style="font-size:10px;color:var(--warn);font-weight:700">手動</span>':""}
-          </span>`}).join("")}
+          </span>`).join("")}
         </div>
         ${miss?'<div style="font-size:11px;color:var(--warn);margin-top:4px">「未設定」の泊は自動料金が出ません。料金タブでランクを登録するか、ここで直接指定してください</div>':""}
       </div>`})()}
@@ -433,9 +451,7 @@ function editView(){
     <div class="tblwrap"><table class="tbl">
       <tr><th>部屋タイプ</th><th>室数</th><th>料金(1室1泊)</th><th>金額</th></tr>
       ${c.roomRows.map((r,i)=>{
-        const manual = N(r.rate)>0;
-        const auto = r.type ? autoRoomRate(c,r.type) : null;
-        const perRoom = manual ? N(r.rate)*N(nights(c)||1) : (auto?auto.total:0);
+        const {manual, auto, perRoom} = priceRoom(c,r);
         return `<tr>
         <td><select onchange="upd('${c.id}','roomRows',this.value,${i},'type');render()">
           <option value=""></option>${M.rooms.map(o=>`<option ${r.type===o?"selected":""}>${o}</option>`).join("")}</select></td>
@@ -615,7 +631,7 @@ function quoteView(){
     </div>
     <table>
       <tr><th style="width:34px">No.</th><th>内容</th><th>単価</th><th>数量</th><th>単位</th><th>金額</th></tr>
-      ${t.rooms.map(r=>row(`${r.type}(${nights(c)||1}泊${r.auto?"・"+r.auto.label:""})`,r.perRoom,r.n,"室",r.amt)).join("")}
+      ${t.rooms.map(r=>row(`${r.type}(${nights(c)||1}泊${r.autoApplied?"・"+r.autoApplied.label:""})`,r.perRoom,r.n,"室",r.amt)).join("")}
       ${t.items.map(i=>row(i.desc,i.price,i.qty,i.unit,i.amt)).join("")}
       ${tr("小計",t.sub)}${tr("サービス料(10%)",t.svc)}${tr("消費税(10%)",t.tax)}
       ${t.onsen?tr("入湯税",t.onsen):""}${t.disc?tr("お値引き",t.disc):""}
@@ -647,18 +663,25 @@ function ttView(){
     </table></div>`;
 }
 /* ---------- カレンダー ---------- */
-let calMonth = (()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`})();
+let calMonth = monthKey(new Date());
 let calMode = "stay";   // "stay"=団体別(滞在) / "venue"=会場別
-function inHouse(c,y,m,d){  // その日に館内にいるか(C/I<=日<C/O、日帰りはC/I当日)
-  if(!c.ci) return false;
-  const dt=new Date(y,m-1,d), s=new Date(c.ci), e=c.co?new Date(c.co):null;
-  if(!e||e.getTime()===s.getTime()) return dt.getTime()===s.getTime();
-  return dt>=s && dt<e;
+/* 日付キー → その日を占有する案件[]。会場別は "日付|会場" をキーにする。
+   滞在の範囲は stayDates() ただ1つに従うので、両カレンダーがずれることはない。 */
+function occupancy(byVenue){
+  const map={};
+  db.cases.filter(c=>c.status!=="キャンセル" && (!byVenue||c.venue)).forEach(c=>{
+    stayDates(c).forEach(k=>{
+      const key = byVenue ? `${k}|${c.venue}` : k;
+      (map[key]=map[key]||[]).push(c);
+    });
+  });
+  return map;
 }
+const caseLink = (c,extra="") =>
+  `<a href="#" onclick="go('edit','${c.id}');return false" style="color:inherit;white-space:nowrap">${
+    esc(c.group||c.company||"?")}${extra}</a>`;
 function calView(){
   const [y,m]=calMonth.split("-").map(Number);
-  const days=new Date(y,m,0).getDate();
-  const wd=["日","月","火","水","木","金","土"];
   const header=`<div class="card no-print" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button class="btn sub" onclick="shiftMonth(-1)">←</button>
       <b style="font-size:16px">${y}年${m}月</b>
@@ -668,47 +691,31 @@ function calView(){
       <button class="btn ${calMode==="venue"?"":"sub"}" onclick="calMode='venue';render()">会場別</button>
     </div>`;
   if(calMode==="stay"){
-    let rows="";
-    for(let d=1; d<=days; d++){
-      const w=new Date(y,m-1,d).getDay();
-      const cs=db.cases.filter(c=>c.status!=="キャンセル"&&inHouse(c,y,m,d));
+    const occ=occupancy(false);
+    const rows=eachDay(y,m,({d,key,w,wend})=>{
+      const cs=occ[key]||[];
       const tot=cs.reduce((s,c)=>s+(pax(c)||0),0);
-      rows+=`<tr>
-        <td class="dt ${w===0||w===6?"wend":""}">${m}/${d}(${wd[w]})</td>
-        <td class="dt ${w===0||w===6?"wend":""}" style="text-align:right">${cs.length?cs.length+"組 "+(tot?tot+"名":""):""}</td>
+      return `<tr>
+        <td class="dt ${wend?"wend":""}">${m}/${d}(${WD[w]})</td>
+        <td class="dt ${wend?"wend":""}" style="text-align:right">${cs.length?cs.length+"組 "+(tot?tot+"名":""):""}</td>
         <td class="${cs.length?"busy":""}">${cs.map(c=>{
-          const isCI=c.ci&&new Date(c.ci).getTime()===new Date(y,m-1,d).getTime();
-          return `<a href="#" onclick="go('edit','${c.id}');return false" style="color:inherit;white-space:nowrap">
-            <span class="chip s-${c.status}" style="font-size:10.5px">${c.status}</span>
-            ${esc(c.group||c.company||"?")}${pax(c)?` ${pax(c)}名`:""}${isCI?" 🔑IN":""}${c.venue?` 🏛${esc(c.venue)}`:""}</a>`;
+          const extra = (pax(c)?" "+pax(c)+"名":"") + (c.ci===key?" 🔑IN":"") + (c.venue?" 🏛"+esc(c.venue):"");
+          return `<span class="chip s-${c.status}" style="font-size:10.5px">${c.status}</span> ${caseLink(c,extra)}`;
         }).join("<br>")}</td>
       </tr>`;
-    }
+    });
     return `${header}<div class="card tblwrap"><table class="tbl calgrid">
       <tr><th>日付</th><th style="width:80px">在館</th><th>利用団体(タップで案件へ / 🔑IN=到着日 / 🏛=会場利用)</th></tr>${rows}</table></div>`;
   }
-  const occupied={}; // "date|venue" -> [case,...]
-  db.cases.filter(c=>c.status!=="キャンセル"&&c.ci&&c.venue).forEach(c=>{
-    const s=new Date(c.ci), e=c.co?new Date(c.co):new Date(c.ci);
-    for(let d=new Date(s); d<e || d.getTime()===s.getTime(); d.setDate(d.getDate()+1)){
-      const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}|${c.venue}`;
-      (occupied[key]=occupied[key]||[]).push(c);
-      if(d>=e) break;
-    }
-  });
-  let rows="";
-  for(let d=1; d<=days; d++){
-    const date=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const w=new Date(y,m-1,d).getDay();
-    rows+=`<tr>
-      <td class="dt ${w===0||w===6?"wend":""}">${m}/${d}(${wd[w]})</td>
+  const occ=occupancy(true);
+  const rows=eachDay(y,m,({d,key,w,wend})=>`<tr>
+      <td class="dt ${wend?"wend":""}">${m}/${d}(${WD[w]})</td>
       ${M.venues.map(v=>{
-        const cs=occupied[`${date}|${v}`]||[];
-        const cls=cs.length>1?"dup":(cs.length?"busy":"");
-        return `<td class="${cls}">${cs.map(c=>`<a href="#" onclick="go('edit','${c.id}');return false" style="color:inherit">${esc(c.group||c.company||"?")}</a>`).join(" ◆重複! ")}</td>`;
+        const cs=occ[`${key}|${v}`]||[];
+        return `<td class="${cs.length>1?"dup":(cs.length?"busy":"")}">${
+          cs.map(c=>caseLink(c)).join(" ◆重複! ")}</td>`;
       }).join("")}
-    </tr>`;
-  }
+    </tr>`);
   return `${header}
     <div class="card tblwrap">
       <div style="font-size:12px;color:var(--sub);margin-bottom:6px">赤=ダブルブッキング</div>
@@ -716,16 +723,15 @@ function calView(){
       <tr><th>日付</th>${M.venues.map(v=>`<th>${v}</th>`).join("")}</tr>${rows}</table></div>`;
 }
 function shiftMonth(n){ const [y,m]=calMonth.split("-").map(Number);
-  const d=new Date(y,m-1+n,1); calMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; render(); }
+  calMonth=monthKey(new Date(y,m-1+n,1)); render(); }
 /* ---------- 料金タブ(ランクカレンダー+料金表) ---------- */
 function setRank(d,v){ if(v) db.rates.cal[d]=v; else delete db.rates.cal[d]; save(); }
 function bulkRank(kind,v){
-  const [y,m]=calMonth.split("-").map(Number), days=new Date(y,m,0).getDate();
-  for(let d=1;d<=days;d++){
-    const w=new Date(y,m-1,d).getDay();
-    if(kind==="all"||(kind==="wend"&&(w===0||w===6))||(kind==="wday"&&w>=1&&w<=5))
-      setRank(`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`,v);
-  }
+  const [y,m]=calMonth.split("-").map(Number);
+  eachDay(y,m,({key,wend})=>{
+    if(kind==="all"||(kind==="wend"&&wend)||(kind==="wday"&&!wend)) setRank(key,v);
+    return "";
+  });
   render();
 }
 function setRate(room,rank,v){
@@ -735,30 +741,23 @@ function setRate(room,rank,v){
 }
 function rateView(){
   const [y,m]=calMonth.split("-").map(Number), days=new Date(y,m,0).getDate();
-  const wd=["日","月","火","水","木","金","土"];
-  let cal="";
-  for(let d=1;d<=days;d++){
-    const key=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const w=new Date(y,m-1,d).getDay(), cur=db.rates.cal[key]||"";
-    cal+=`<tr><td class="dt ${w===0||w===6?"wend":""}">${m}/${d}(${wd[w]})</td>
+  const unset=[];
+  const cal=eachDay(y,m,({d,key,w,wend})=>{
+    const cur=db.rates.cal[key]||"";
+    if(!cur) unset.push(d);
+    return `<tr><td class="dt ${wend?"wend":""}">${m}/${d}(${WD[w]})</td>
       <td>${RANKS.map(r=>`<button class="btn ${cur===r?"":"sub"}" style="padding:4px 10px;margin-right:4px"
         onclick="setRank('${key}','${cur===r?"":r}');render()">${r}</button>`).join("")}</td></tr>`;
-  }
+  });
   const sel=`<select id="bulkRank" style="width:auto">${RANKS.map(r=>`<option>${r}</option>`).join("")}</select>`;
-  /* 未設定日の把握(ランクは泊ごとに必要なので、月内の欠けを明示) */
-  const unset=[];
-  for(let d=1;d<=days;d++){
-    const k=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    if(!db.rates.cal[k]) unset.push(d);
-  }
-  /* 今後の案件で、ランク未設定の泊を含むもの */
+  /* ランクは泊ごとに要るので、月内の欠けと、それに当たる案件を明示する */
   const affected=db.cases.filter(c=>c.status!=="キャンセル"&&c.ci&&stayRanks(c).some(r=>!r.rank));
   const coverage=`<div style="font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:8px;
     background:${unset.length?"var(--warn-soft)":"var(--accent-soft)"};color:${unset.length?"var(--warn)":"var(--accent)"};font-weight:700">
     ${unset.length? `⚠ ${m}月は ${days}日中 ${unset.length}日が未設定 — ${unset.slice(0,12).join("・")}${unset.length>12?"…":""}`
                   : `✓ ${m}月は全${days}日にランク設定済み`}
     ${affected.length?`<div style="font-weight:400;margin-top:4px">ランク未設定の泊を含む案件が ${affected.length}件: ${
-      affected.slice(0,4).map(c=>`<a href="#" onclick="go('edit','${c.id}');return false" style="color:inherit;text-decoration:underline">${esc(c.group||c.company||"?")}</a>`).join("・")}${affected.length>4?" ほか":""}</div>`:""}
+      affected.slice(0,4).map(c=>caseLink(c)).join("・")}${affected.length>4?" ほか":""}</div>`:""}
   </div>`;
   return `<div class="card">
     <h2 style="font-size:15px;margin-bottom:6px">💴 部屋料金表(部屋タイプ × ランク・1室1泊)</h2>
