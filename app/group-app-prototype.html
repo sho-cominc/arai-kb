@@ -195,7 +195,19 @@ function stayDates(c){
     out.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);
   return out;
 }
-function stayRanks(c){ return stayDates(c).map(d=>({date:d, rank:db.rates.cal[d]||""})); }
+/* 泊ごとのランク: 案件側の手動上書き > 料金カレンダー */
+function stayRanks(c){
+  return stayDates(c).map(d=>{
+    const ov=(c.rankOv||{})[d];
+    return {date:d, rank:ov||db.rates.cal[d]||"", ov:!!ov, calRank:db.rates.cal[d]||""};
+  });
+}
+function setRankOv(id,date,val){
+  const c=findCase(id); if(!c) return;
+  c.rankOv=c.rankOv||{};
+  if(val) c.rankOv[date]=val; else delete c.rankOv[date];
+  save(); render();
+}
 function autoRoomRate(c,type){
   const ds=stayRanks(c);
   if(!type||!ds.length) return null;
@@ -213,7 +225,7 @@ function blankCase(){
     agent:"", contact:"", nation:"", tc:"", ci:"", co:"", arrival:"", depart:"",
     greet:"", greetmemo:"", adult:"", child:"", tcnum:"",
     stay:"宿泊あり", citime:"15:00", cotime:"10:00",
-    roomRows:Array.from({length:8},()=>({type:"",n:"",rate:""})), staynote:"",
+    roomRows:Array.from({length:8},()=>({type:"",n:"",rate:""})), staynote:"", rankOv:{},
     meals:MEAL_SLOTS.map(([d,m])=>({day:d,meal:m,menu:"",venue:"",time:"",qty:""})),
     allergy:"", venue:"", venuetime:"", layout:"", equip:"", flow:"",
     go:"", back:"", status:"引合", kakudo:"", karilimit:"", pay:"", taxsv:"",
@@ -236,9 +248,10 @@ const fmtD = (s,opt) => s ? new Date(s).toLocaleDateString("ja-JP",opt||{month:"
 function mealDate(c,day){ if(!c.ci) return ""; const d=new Date(c.ci); d.setDate(d.getDate()+day-1); return `(${d.getMonth()+1}/${d.getDate()})`; }
 function roomLines(c){
   return c.roomRows.filter(r=>r.type&&N(r.n)).map(r=>{
-    const auto = N(r.rate) ? null : autoRoomRate(c,r.type);
-    const perRoom = N(r.rate) ? N(r.rate)*N(nights(c)||1) : (auto?auto.total:0);
-    return {...r, perRoom, auto, amt:N(r.n)*perRoom};
+    const manual = N(r.rate)>0;
+    const auto = manual ? null : autoRoomRate(c,r.type);
+    const perRoom = manual ? N(r.rate)*N(nights(c)||1) : (auto?auto.total:0);
+    return {...r, perRoom, auto, manual, amt:N(r.n)*perRoom};
   });
 }
 function itemLines(c){ return c.items.filter(i=>i.desc&&(N(i.price)||N(i.qty))).map(i=>({...i, amt:N(i.price)*N(i.qty)})); }
@@ -382,25 +395,45 @@ function editView(){
     </div>
     ${(()=>{const rs=stayRanks(c); if(!rs.length) return "";
       const miss=rs.some(r=>!r.rank);
-      return `<div style="font-size:12px;margin-bottom:6px;padding:6px 10px;border-radius:8px;
-        background:${miss?"var(--warn-soft)":"var(--accent-soft)"};color:${miss?"var(--warn)":"var(--accent)"};font-weight:700">
-        この日程のランク: ${rs.map(r=>{const d=new Date(r.date);return `${d.getMonth()+1}/${d.getDate()}=${r.rank||"未設定⚠"}`}).join("・")}
-        ${miss?"(料金タブでランクを設定すると自動料金が効きます)":""}</div>`})()}
-    <label>部屋タイプ(最大8) — 料金欄が空なら日程のランクから自動計算</label>
+      return `<div style="font-size:12px;margin-bottom:8px;padding:8px 10px;border-radius:8px;
+        background:${miss?"var(--warn-soft)":"var(--accent-soft)"}">
+        <b style="color:${miss?"var(--warn)":"var(--accent)"}">この日程の料金ランク</b>
+        <span style="color:var(--sub)"> — 料金カレンダーから自動。変更したい泊は選び直せます</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        ${rs.map(r=>{const d=new Date(r.date);
+          return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--panel);
+            border:1px solid ${r.ov?"var(--warn)":"var(--line)"};border-radius:8px;padding:3px 6px">
+            <b style="font-size:11px">${d.getMonth()+1}/${d.getDate()}</b>
+            <select style="width:auto;padding:2px 4px;font-size:12px" onchange="setRankOv('${c.id}','${r.date}',this.value)">
+              <option value="">${r.calRank?"自動("+r.calRank+")":"未設定⚠"}</option>
+              ${RANKS.map(k=>`<option ${r.ov&&r.rank===k?"selected":""}>${k}</option>`).join("")}
+            </select>${r.ov?'<span style="font-size:10px;color:var(--warn);font-weight:700">手動</span>':""}
+          </span>`}).join("")}
+        </div>
+        ${miss?'<div style="font-size:11px;color:var(--warn);margin-top:4px">「未設定」の泊は自動料金が出ません。料金タブでランクを登録するか、ここで直接指定してください</div>':""}
+      </div>`})()}
+    <label>部屋タイプ(最大8) — 料金は自動。上書きしたい行だけ数字を入れる</label>
     <div class="tblwrap"><table class="tbl">
-      <tr><th>部屋タイプ</th><th>室数</th><th>料金(1室1泊)<br>空=自動</th><th>金額</th></tr>
+      <tr><th>部屋タイプ</th><th>室数</th><th>料金(1室1泊)</th><th>金額</th></tr>
       ${c.roomRows.map((r,i)=>{
-        const auto = r.type && !N(r.rate) ? autoRoomRate(c,r.type) : null;
-        const perRoom = N(r.rate) ? N(r.rate)*N(nights(c)||1) : (auto?auto.total:0);
+        const manual = N(r.rate)>0;
+        const auto = r.type ? autoRoomRate(c,r.type) : null;
+        const perRoom = manual ? N(r.rate)*N(nights(c)||1) : (auto?auto.total:0);
         return `<tr>
         <td><select onchange="upd('${c.id}','roomRows',this.value,${i},'type');render()">
           <option value=""></option>${M.rooms.map(o=>`<option ${r.type===o?"selected":""}>${o}</option>`).join("")}</select></td>
         <td class="num" style="width:70px"><input inputmode="numeric" value="${esc(r.n)}" oninput="upd('${c.id}','roomRows',this.value,${i},'n')"></td>
-        <td class="num" style="width:100px"><input inputmode="numeric" value="${esc(r.rate)}"
-          placeholder="${auto?Math.round(auto.total/(N(nights(c))||1)).toLocaleString():""}"
-          oninput="upd('${c.id}','roomRows',this.value,${i},'rate')"></td>
+        <td class="num" style="width:130px;${manual?"background:var(--warn-soft)":""}">
+          <div style="display:flex;align-items:center;gap:2px">
+          <input inputmode="numeric" value="${esc(r.rate)}"
+            placeholder="${auto?Math.round(auto.total/(N(nights(c))||1)).toLocaleString()+" (自動)":"手入力"}"
+            oninput="upd('${c.id}','roomRows',this.value,${i},'rate')">
+          ${manual?`<button class="btn ghost" style="padding:2px 6px;font-size:11px;flex:none"
+            title="自動料金に戻す" onclick="upd('${c.id}','roomRows','',${i},'rate');render()">↺</button>`:""}
+          </div></td>
         <td class="amount">${r.type&&N(r.n)&&perRoom?yen(N(r.n)*perRoom):""}
-          ${auto&&N(r.n)?`<div style="font-size:10px;color:var(--accent);font-weight:700">${auto.label}</div>`:""}</td>
+          ${r.type&&N(r.n)?`<div style="font-size:10px;font-weight:700;color:${manual?"var(--warn)":"var(--accent)"}">
+            ${manual?"手動料金":(auto?auto.label:"自動料金なし→手入力を")}</div>`:""}</td>
       </tr>`}).join("")}
     </table></div>
     ${F(c,"staynote","宿泊特記","1階希望3名(車椅子貸出1名)")}
