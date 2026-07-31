@@ -211,13 +211,30 @@ function setRankOv(id,date,val){
 function autoRoomRate(c,type){
   const ds=stayRanks(c);
   if(!type||!ds.length) return null;
-  let total=0; const parts=[];
+  let total=0; const parts=[], nights=[];
   for(const {date,rank} of ds){
     const p = rank && db.rates.table[type] && N(db.rates.table[type][rank]);
-    if(!p) return null;   // ランク未設定 or 料金未登録の泊があれば自動不可
+    if(!p) return null;   // ランク未設定 or 料金未登録の泊があれば自動不可(1泊でも欠けたら中断)
     total+=p; parts.push(rank);
+    nights.push({date, rank, price:p});
   }
-  return {total, label:"ランク"+parts.join("→")+" 自動"};
+  return {total, label:"ランク"+parts.join("→")+" 自動", nights};
+}
+/* 泊ごとの内訳文字列: 8/15 A ¥14,960 + 8/16 B ¥12,000 */
+function nightBreakdown(auto){
+  if(!auto) return "";
+  return auto.nights.map(n=>{const d=new Date(n.date);
+    return `${d.getMonth()+1}/${d.getDate()} ${n.rank} ${yen(n.price)}`}).join(" + ");
+}
+/* 自動化を阻んでいる原因を泊ごとに説明 */
+function autoBlockReason(c,type){
+  const ds=stayRanks(c);
+  if(!ds.length) return "日程を入れてください";
+  const noRank=ds.filter(d=>!d.rank), noPrice=ds.filter(d=>d.rank&&!(db.rates.table[type]||{})[d.rank]);
+  const fmt=a=>a.map(x=>{const d=new Date(x.date);return `${d.getMonth()+1}/${d.getDate()}`}).join("・");
+  if(noRank.length) return `${fmt(noRank)} のランク未設定`;
+  if(noPrice.length) return `${fmt(noPrice)}(ランク${noPrice.map(x=>x.rank).join("・")})の料金未登録`;
+  return "手入力を";
 }
 
 function blankCase(){
@@ -432,8 +449,10 @@ function editView(){
             title="自動料金に戻す" onclick="upd('${c.id}','roomRows','',${i},'rate');render()">↺</button>`:""}
           </div></td>
         <td class="amount">${r.type&&N(r.n)&&perRoom?yen(N(r.n)*perRoom):""}
-          ${r.type&&N(r.n)?`<div style="font-size:10px;font-weight:700;color:${manual?"var(--warn)":"var(--accent)"}">
-            ${manual?"手動料金":(auto?auto.label:"自動料金なし→手入力を")}</div>`:""}</td>
+          ${r.type&&N(r.n)?`<div style="font-size:10px;font-weight:700;color:${manual?"var(--warn)":(auto?"var(--accent)":"var(--danger)")}">
+            ${manual?`手動料金(${nights(c)||1}泊×${N(r.n)}室)`
+              :(auto?`${auto.label}<div style="font-weight:400;color:var(--sub);font-size:9.5px">${nightBreakdown(auto)} = ${yen(auto.total)}/室</div>`
+                   :`⚠ 自動不可: ${autoBlockReason(c,r.type)}`)}</div>`:""}</td>
       </tr>`}).join("")}
     </table></div>
     ${F(c,"staynote","宿泊特記","1階希望3名(車椅子貸出1名)")}
@@ -726,6 +745,21 @@ function rateView(){
         onclick="setRank('${key}','${cur===r?"":r}');render()">${r}</button>`).join("")}</td></tr>`;
   }
   const sel=`<select id="bulkRank" style="width:auto">${RANKS.map(r=>`<option>${r}</option>`).join("")}</select>`;
+  /* 未設定日の把握(ランクは泊ごとに必要なので、月内の欠けを明示) */
+  const unset=[];
+  for(let d=1;d<=days;d++){
+    const k=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    if(!db.rates.cal[k]) unset.push(d);
+  }
+  /* 今後の案件で、ランク未設定の泊を含むもの */
+  const affected=db.cases.filter(c=>c.status!=="キャンセル"&&c.ci&&stayRanks(c).some(r=>!r.rank));
+  const coverage=`<div style="font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:8px;
+    background:${unset.length?"var(--warn-soft)":"var(--accent-soft)"};color:${unset.length?"var(--warn)":"var(--accent)"};font-weight:700">
+    ${unset.length? `⚠ ${m}月は ${days}日中 ${unset.length}日が未設定 — ${unset.slice(0,12).join("・")}${unset.length>12?"…":""}`
+                  : `✓ ${m}月は全${days}日にランク設定済み`}
+    ${affected.length?`<div style="font-weight:400;margin-top:4px">ランク未設定の泊を含む案件が ${affected.length}件: ${
+      affected.slice(0,4).map(c=>`<a href="#" onclick="go('edit','${c.id}');return false" style="color:inherit;text-decoration:underline">${esc(c.group||c.company||"?")}</a>`).join("・")}${affected.length>4?" ほか":""}</div>`:""}
+  </div>`;
   return `<div class="card">
     <h2 style="font-size:15px;margin-bottom:6px">💴 部屋料金表(部屋タイプ × ランク・1室1泊)</h2>
     <div class="hint" style="margin-bottom:8px">お手元の料金表Excelの値をここに登録(またはExcelを送ってもらえれば取り込みます)</div>
@@ -737,6 +771,7 @@ function rateView(){
     </table></div></div>
   <div class="card">
     <h2 style="font-size:15px;margin-bottom:6px">📅 料金ランクカレンダー(日ごと)</h2>
+    <div class="hint" style="margin-bottom:8px">ランクは<b>1泊ずつ</b>必要です。1日でも欠けるとその日程は自動料金が出ません</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
       <button class="btn sub" onclick="shiftMonth(-1)">←</button>
       <b style="font-size:16px">${y}年${m}月</b>
@@ -747,6 +782,7 @@ function rateView(){
       <button class="btn sub" onclick="bulkRank('wday',document.getElementById('bulkRank').value)">平日</button>
       <button class="btn sub" onclick="bulkRank('wend',document.getElementById('bulkRank').value)">土日</button>
     </div>
+    ${coverage}
     <div class="tblwrap"><table class="tbl calgrid">
       <tr><th>日付</th><th>ランク(タップで選択・もう一度で解除)</th></tr>${cal}</table></div>
   </div>`;
