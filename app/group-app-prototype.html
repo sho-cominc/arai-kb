@@ -325,6 +325,10 @@ function go(name,arg){ view={name,arg}; render(); window.scrollTo(0,0); }
 function newCase(){ cur=blankCase(); db.cases.unshift(cur); save(); go("edit",cur.id); }
 function findCase(id){ return db.cases.find(c=>c.id===id); }
 const esc = s => String(s??"").replace(/[&<>"]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+/* 一覧・カレンダーで案件を指す表示名(見積書の「件名」はツアー名優先なので別扱い) */
+const caseName = c => c.group||c.company||c.tour||"(名称未入力)";
+/* キャンセルは在庫も件数も占有しない — この判定は必ずここを通す */
+const activeCases = () => db.cases.filter(c=>c.status!=="キャンセル");
 function upd(id,key,val,idx,sub){
   const c=findCase(id); if(!c) return;
   if(idx===undefined) c[key]=val; else c[key][idx][sub]=val;
@@ -334,6 +338,9 @@ function softRefresh(c){
   const el=document.getElementById("readybar"); if(el) el.outerHTML=readyBar(c);
   const bc=document.getElementById("bcode"); if(bc) bc.textContent=blockCode(c)||"(C/I日と略号で自動生成)";
   const tt=document.getElementById("liveTotal"); if(tt) tt.textContent=yen(totals(c).total);
+  /* 入力中に金額列も追従させる(セル書き換えなのでフォーカスは外れない) */
+  c.roomRows.forEach((r,i)=>{ const td=document.getElementById("roomAmt"+i); if(td) td.innerHTML=roomAmtHTML(c,r); });
+  c.items.forEach((it,i)=>{ const td=document.getElementById("itemAmt"+i); if(td) td.innerHTML=itemAmtHTML(it); });
   document.querySelectorAll("[data-req]").forEach(f=>{
     const inp=f.querySelector("input,select"); if(inp) f.classList.toggle("missing", !inp.value);
   });
@@ -353,7 +360,7 @@ function caseCards(cs){
     const r=readiness(c);
     return `<button class="case-card" onclick="go('edit','${c.id}')">
       <div class="row1">
-        <span class="name">${esc(c.group||c.company||c.tour||"(名称未入力)")}</span>
+        <span class="name">${esc(caseName(c))}</span>
         <span class="chip s-${c.status}">${c.status}</span>
         ${c.kakudo?`<span class="chip">${c.kakudo}</span>`:""}
         ${blockCode(c)?`<span class="chip code">${blockCode(c)}</span>`:""}
@@ -371,14 +378,26 @@ const F = (c,key,label,ph,type,req,hint)=>`
       oninput="upd('${c.id}','${key}',this.value)">
     ${hint?`<div class="hint">${hint}</div>`:""}
   </div>`;
+/* select の中身。空欄+選択状態の付与を1箇所に集約(付け忘れを防ぐ) */
+const optList = (list,sel) => `<option value=""></option>` +
+  list.map(o=>`<option ${o===sel?"selected":""}>${o}</option>`).join("");
 const S = (c,key,label,opts,req)=>`
   <div class="field ${req?"req":""} ${req&&!c[key]?"missing":""}" ${req?'data-req="1"':""}>
     <label>${label}</label>
-    <select onchange="upd('${c.id}','${key}',this.value)">
-      <option value=""></option>
-      ${opts.map(o=>`<option ${c[key]===o?"selected":""}>${o}</option>`).join("")}
-    </select>
+    <select onchange="upd('${c.id}','${key}',this.value)">${optList(opts,c[key])}</select>
   </div>`;
+/* 金額セルの中身。入力中も即時更新するので、描画と再計算で同じものを使う */
+function roomAmtHTML(c,r){
+  if(!r.type||!N(r.n)) return "";
+  const {manual,auto,perRoom} = priceRoom(c,r);
+  const note = manual ? `手動料金(${nights(c)||1}泊×${N(r.n)}室)`
+    : (auto ? `${auto.label}<div style="font-weight:400;color:var(--sub);font-size:9.5px">${
+        nightBreakdown(auto)} = ${yen(auto.total)}/室</div>`
+            : `⚠ 自動不可: ${autoBlockReason(c,r.type)}`);
+  const color = manual ? "var(--warn)" : (auto ? "var(--accent)" : "var(--danger)");
+  return `${perRoom?yen(N(r.n)*perRoom):""}<div style="font-size:10px;font-weight:700;color:${color}">${note}</div>`;
+}
+const itemAmtHTML = it => it.desc ? yen(N(it.price)*N(it.qty)) : "";
 function readyBar(c){
   const r=readiness(c);
   return `<div class="ready" id="readybar">
@@ -462,7 +481,7 @@ function editView(){
         const {manual, auto, perRoom} = priceRoom(c,r);
         return `<tr>
         <td><select onchange="upd('${c.id}','roomRows',this.value,${i},'type');render()">
-          <option value=""></option>${M.rooms.map(o=>`<option ${r.type===o?"selected":""}>${o}</option>`).join("")}</select></td>
+          ${optList(M.rooms,r.type)}</select></td>
         <td class="num" style="width:70px"><input inputmode="numeric" value="${esc(r.n)}" oninput="upd('${c.id}','roomRows',this.value,${i},'n')"></td>
         <td class="num" style="width:130px;${manual?"background:var(--warn-soft)":""}">
           <div style="display:flex;align-items:center;gap:2px">
@@ -472,11 +491,7 @@ function editView(){
           ${manual?`<button class="btn ghost" style="padding:2px 6px;font-size:11px;flex:none"
             title="自動料金に戻す" onclick="upd('${c.id}','roomRows','',${i},'rate');render()">↺</button>`:""}
           </div></td>
-        <td class="amount">${r.type&&N(r.n)&&perRoom?yen(N(r.n)*perRoom):""}
-          ${r.type&&N(r.n)?`<div style="font-size:10px;font-weight:700;color:${manual?"var(--warn)":(auto?"var(--accent)":"var(--danger)")}">
-            ${manual?`手動料金(${nights(c)||1}泊×${N(r.n)}室)`
-              :(auto?`${auto.label}<div style="font-weight:400;color:var(--sub);font-size:9.5px">${nightBreakdown(auto)} = ${yen(auto.total)}/室</div>`
-                   :`⚠ 自動不可: ${autoBlockReason(c,r.type)}`)}</div>`:""}</td>
+        <td class="amount" id="roomAmt${i}">${roomAmtHTML(c,r)}</td>
       </tr>`}).join("")}
     </table></div>
     ${F(c,"staynote","宿泊特記","1階希望3名(車椅子貸出1名)")}
@@ -489,12 +504,12 @@ function editView(){
         <td class="rowlab">${m.day}日目${mealDate(c,m.day)} ${m.meal}</td>
         <td style="min-width:150px"><input value="${esc(m.menu)}" placeholder="${i===1?"宴会コース+飲放90分":""}" oninput="upd('${c.id}','meals',this.value,${i},'menu')"></td>
         <td><select onchange="upd('${c.id}','meals',this.value,${i},'venue')">
-          <option value=""></option>${M.restaurants.map(o=>`<option ${m.venue===o?"selected":""}>${o}</option>`).join("")}</select></td>
+          ${optList(M.restaurants,m.venue)}</select></td>
         <td><select onchange="upd('${c.id}','meals',this.value,${i},'time')">
-          <option value=""></option>${
+          ${optList(
             // 既存データが営業時間外でも消えないよう、リストになければその値も残す
-            (mealTimes(m.meal).includes(m.time)||!m.time ? mealTimes(m.meal) : [m.time,...mealTimes(m.meal)])
-            .map(o=>`<option ${m.time===o?"selected":""}>${o}</option>`).join("")}</select></td>
+            m.time&&!mealTimes(m.meal).includes(m.time) ? [m.time,...mealTimes(m.meal)] : mealTimes(m.meal),
+            m.time)}</select></td>
         <td class="num" style="width:60px"><input inputmode="numeric" value="${esc(m.qty)}" oninput="upd('${c.id}','meals',this.value,${i},'qty')"></td>
       </tr>`).join("")}
     </table></div>
@@ -528,13 +543,13 @@ function editView(){
       <tr><th>項目</th><th>内容</th><th>単価</th><th>数量</th><th>単位</th><th>金額</th></tr>
       ${c.items.map((it,i)=>`<tr>
         <td><select onchange="upd('${c.id}','items',this.value,${i},'cat')">
-          <option value=""></option>${M.items.map(o=>`<option ${it.cat===o?"selected":""}>${o}</option>`).join("")}</select></td>
+          ${optList(M.items,it.cat)}</select></td>
         <td style="min-width:150px"><input value="${esc(it.desc)}" oninput="upd('${c.id}','items',this.value,${i},'desc')"></td>
         <td class="num" style="width:90px"><input inputmode="numeric" value="${esc(it.price)}" oninput="upd('${c.id}','items',this.value,${i},'price')"></td>
         <td class="num" style="width:60px"><input inputmode="numeric" value="${esc(it.qty)}" oninput="upd('${c.id}','items',this.value,${i},'qty')"></td>
         <td><select onchange="upd('${c.id}','items',this.value,${i},'unit')">
-          <option value=""></option>${M.units.map(o=>`<option ${it.unit===o?"selected":""}>${o}</option>`).join("")}</select></td>
-        <td class="amount">${it.desc?yen(N(it.price)*N(it.qty)):""}</td>
+          ${optList(M.units,it.unit)}</select></td>
+        <td class="amount" id="itemAmt${i}">${itemAmtHTML(it)}</td>
       </tr>`).join("")}
     </table></div>
     <div class="grid2" style="margin-top:8px">
@@ -680,7 +695,7 @@ let calMode = "stay";   // "stay"=団体別(滞在) / "venue"=会場別
    滞在の範囲は stayDates() ただ1つに従うので、両カレンダーがずれることはない。 */
 function occupancy(byVenue){
   const map={};
-  db.cases.filter(c=>c.status!=="キャンセル" && (!byVenue||c.venue)).forEach(c=>{
+  activeCases().filter(c=>!byVenue||c.venue).forEach(c=>{
     stayDates(c).forEach(k=>{
       const key = byVenue ? `${k}|${c.venue}` : k;
       (map[key]=map[key]||[]).push(c);
@@ -688,15 +703,20 @@ function occupancy(byVenue){
   });
   return map;
 }
-const caseLink = (c,extra="") =>
-  `<a href="#" onclick="go('edit','${c.id}');return false" style="color:inherit;white-space:nowrap">${
-    esc(c.group||c.company||"?")}${extra}</a>`;
-function calView(){
-  const [y,m]=calMonth.split("-").map(Number);
-  const header=`<div class="card no-print" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+/* 表示中の年月。calMonth("YYYY-MM")のパースはここだけ */
+const curYM = () => calMonth.split("-").map(Number);
+/* 月送りナビ(カレンダータブ・料金タブで共用) */
+const monthNav = () => { const [y,m]=curYM(); return `
       <button class="btn sub" onclick="shiftMonth(-1)">←</button>
       <b style="font-size:16px">${y}年${m}月</b>
-      <button class="btn sub" onclick="shiftMonth(1)">→</button>
+      <button class="btn sub" onclick="shiftMonth(1)">→</button>`; };
+const caseLink = (c,extra="") =>
+  `<a href="#" onclick="go('edit','${c.id}');return false" style="color:inherit;white-space:nowrap">${
+    esc(caseName(c))}${extra}</a>`;
+function calView(){
+  const [y,m]=curYM();
+  const header=`<div class="card no-print" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      ${monthNav()}
       <span style="flex:1"></span>
       <button class="btn ${calMode==="stay"?"":"sub"}" onclick="calMode='stay';render()">団体別</button>
       <button class="btn ${calMode==="venue"?"":"sub"}" onclick="calMode='venue';render()">会場別</button>
@@ -733,12 +753,12 @@ function calView(){
       <table class="tbl calgrid">
       <tr><th>日付</th>${M.venues.map(v=>`<th>${v}</th>`).join("")}</tr>${rows}</table></div>`;
 }
-function shiftMonth(n){ const [y,m]=calMonth.split("-").map(Number);
+function shiftMonth(n){ const [y,m]=curYM();
   calMonth=monthKey(new Date(y,m-1+n,1)); render(); }
 /* ---------- 料金タブ(ランクカレンダー+料金表) ---------- */
 function setRank(d,v){ if(v) db.rates.cal[d]=v; else delete db.rates.cal[d]; save(); }
 function bulkRank(kind,v){
-  const [y,m]=calMonth.split("-").map(Number);
+  const [y,m]=curYM();
   eachDay(y,m,({key,wend})=>{
     if(kind==="all"||(kind==="wend"&&wend)||(kind==="wday"&&!wend)) setRank(key,v);
     return "";
@@ -751,7 +771,7 @@ function setRate(room,rank,v){
   save();
 }
 function rateView(){
-  const [y,m]=calMonth.split("-").map(Number), days=new Date(y,m,0).getDate();
+  const [y,m]=curYM(), days=new Date(y,m,0).getDate();
   const unset=[];
   const cal=eachDay(y,m,({d,key,w,wend})=>{
     const cur=db.rates.cal[key]||"";
@@ -762,7 +782,7 @@ function rateView(){
   });
   const sel=`<select id="bulkRank" style="width:auto">${RANKS.map(r=>`<option>${r}</option>`).join("")}</select>`;
   /* ランクは泊ごとに要るので、月内の欠けと、それに当たる案件を明示する */
-  const affected=db.cases.filter(c=>c.status!=="キャンセル"&&c.ci&&stayRanks(c).some(r=>!r.rank));
+  const affected=activeCases().filter(c=>c.ci&&stayRanks(c).some(r=>!r.rank));
   const coverage=`<div style="font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:8px;
     background:${unset.length?"var(--warn-soft)":"var(--accent-soft)"};color:${unset.length?"var(--warn)":"var(--accent)"};font-weight:700">
     ${unset.length? `⚠ ${m}月は ${days}日中 ${unset.length}日が未設定 — ${unset.slice(0,12).join("・")}${unset.length>12?"…":""}`
@@ -783,9 +803,7 @@ function rateView(){
     <h2 style="font-size:15px;margin-bottom:6px">📅 料金ランクカレンダー(日ごと)</h2>
     <div class="hint" style="margin-bottom:8px">ランクは<b>1泊ずつ</b>必要です。1日でも欠けるとその日程は自動料金が出ません</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-      <button class="btn sub" onclick="shiftMonth(-1)">←</button>
-      <b style="font-size:16px">${y}年${m}月</b>
-      <button class="btn sub" onclick="shiftMonth(1)">→</button>
+      ${monthNav()}
       <span style="flex:1"></span>
       ${sel}
       <button class="btn sub" onclick="bulkRank('all',document.getElementById('bulkRank').value)">全日</button>
