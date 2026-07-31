@@ -155,6 +155,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px}
 <nav class="tabbar no-print">
   <button id="tab-list" onclick="go('list')"><span class="ico">📋</span>案件</button>
   <button id="tab-cal" onclick="go('cal')"><span class="ico">📅</span>カレンダー</button>
+  <button id="tab-rate" onclick="go('rate')"><span class="ico">💴</span>料金</button>
   <button id="tab-new" onclick="newCase()"><span class="ico">＋</span>新規</button>
 </nav>
 
@@ -182,7 +183,30 @@ const MEAL_SLOTS = [[1,"朝食"],[1,"夕食"],[2,"朝食"],[2,"夕食"],[3,"朝�
 /* ---------- 保存 ---------- */
 const DB_KEY = "groupdesk.v1";
 let db = JSON.parse(localStorage.getItem(DB_KEY) || "null") || { cases: [], seq: 1 };
+db.rates = db.rates || { cal: {}, table: {} };   // cal: {"2026-08-15":"A"} / table: {部屋タイプ:{ランク:単価}}
 const save = () => localStorage.setItem(DB_KEY, JSON.stringify(db));
+const RANKS = ["S","A","B","C","D"];
+/* 日程の各泊のランクと、部屋タイプの1室あたり(全泊計)自動料金 */
+function stayDates(c){
+  if(!c.ci) return [];
+  const out=[], s=new Date(c.ci), e=c.co?new Date(c.co):null;
+  if(!e||e.getTime()<=s.getTime()) return [c.ci];
+  for(let d=new Date(s); d<e; d.setDate(d.getDate()+1))
+    out.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);
+  return out;
+}
+function stayRanks(c){ return stayDates(c).map(d=>({date:d, rank:db.rates.cal[d]||""})); }
+function autoRoomRate(c,type){
+  const ds=stayRanks(c);
+  if(!type||!ds.length) return null;
+  let total=0; const parts=[];
+  for(const {date,rank} of ds){
+    const p = rank && db.rates.table[type] && N(db.rates.table[type][rank]);
+    if(!p) return null;   // ランク未設定 or 料金未登録の泊があれば自動不可
+    total+=p; parts.push(rank);
+  }
+  return {total, label:"ランク"+parts.join("→")+" 自動"};
+}
 
 function blankCase(){
   return { id: crypto.randomUUID(), groupno:"", company:"", group:"", tour:"", desc:"",
@@ -210,7 +234,13 @@ function blockCode(c){
 }
 const fmtD = (s,opt) => s ? new Date(s).toLocaleDateString("ja-JP",opt||{month:"numeric",day:"numeric",weekday:"short"}) : "";
 function mealDate(c,day){ if(!c.ci) return ""; const d=new Date(c.ci); d.setDate(d.getDate()+day-1); return `(${d.getMonth()+1}/${d.getDate()})`; }
-function roomLines(c){ return c.roomRows.filter(r=>r.type&&N(r.n)).map(r=>({...r, amt:N(r.n)*N(r.rate)*N(nights(c)||1)})); }
+function roomLines(c){
+  return c.roomRows.filter(r=>r.type&&N(r.n)).map(r=>{
+    const auto = N(r.rate) ? null : autoRoomRate(c,r.type);
+    const perRoom = N(r.rate) ? N(r.rate)*N(nights(c)||1) : (auto?auto.total:0);
+    return {...r, perRoom, auto, amt:N(r.n)*perRoom};
+  });
+}
 function itemLines(c){ return c.items.filter(i=>i.desc&&(N(i.price)||N(i.qty))).map(i=>({...i, amt:N(i.price)*N(i.qty)})); }
 function totals(c){
   const rooms=roomLines(c), items=itemLines(c);
@@ -350,16 +380,28 @@ function editView(){
       ${F(c,"citime","チェックイン時刻","15:00")}
       ${F(c,"cotime","チェックアウト時刻","10:00")}
     </div>
-    <label>部屋タイプ(最大8)</label>
+    ${(()=>{const rs=stayRanks(c); if(!rs.length) return "";
+      const miss=rs.some(r=>!r.rank);
+      return `<div style="font-size:12px;margin-bottom:6px;padding:6px 10px;border-radius:8px;
+        background:${miss?"var(--warn-soft)":"var(--accent-soft)"};color:${miss?"var(--warn)":"var(--accent)"};font-weight:700">
+        この日程のランク: ${rs.map(r=>{const d=new Date(r.date);return `${d.getMonth()+1}/${d.getDate()}=${r.rank||"未設定⚠"}`}).join("・")}
+        ${miss?"(料金タブでランクを設定すると自動料金が効きます)":""}</div>`})()}
+    <label>部屋タイプ(最大8) — 料金欄が空なら日程のランクから自動計算</label>
     <div class="tblwrap"><table class="tbl">
-      <tr><th>部屋タイプ</th><th>室数</th><th>料金(1室1泊)</th><th>金額</th></tr>
-      ${c.roomRows.map((r,i)=>`<tr>
-        <td><select onchange="upd('${c.id}','roomRows',this.value,${i},'type')">
+      <tr><th>部屋タイプ</th><th>室数</th><th>料金(1室1泊)<br>空=自動</th><th>金額</th></tr>
+      ${c.roomRows.map((r,i)=>{
+        const auto = r.type && !N(r.rate) ? autoRoomRate(c,r.type) : null;
+        const perRoom = N(r.rate) ? N(r.rate)*N(nights(c)||1) : (auto?auto.total:0);
+        return `<tr>
+        <td><select onchange="upd('${c.id}','roomRows',this.value,${i},'type');render()">
           <option value=""></option>${M.rooms.map(o=>`<option ${r.type===o?"selected":""}>${o}</option>`).join("")}</select></td>
         <td class="num" style="width:70px"><input inputmode="numeric" value="${esc(r.n)}" oninput="upd('${c.id}','roomRows',this.value,${i},'n')"></td>
-        <td class="num" style="width:100px"><input inputmode="numeric" value="${esc(r.rate)}" oninput="upd('${c.id}','roomRows',this.value,${i},'rate')"></td>
-        <td class="amount">${r.type&&N(r.n)?yen(N(r.n)*N(r.rate)*N(nights(c)||1)):""}</td>
-      </tr>`).join("")}
+        <td class="num" style="width:100px"><input inputmode="numeric" value="${esc(r.rate)}"
+          placeholder="${auto?Math.round(auto.total/(N(nights(c))||1)).toLocaleString():""}"
+          oninput="upd('${c.id}','roomRows',this.value,${i},'rate')"></td>
+        <td class="amount">${r.type&&N(r.n)&&perRoom?yen(N(r.n)*perRoom):""}
+          ${auto&&N(r.n)?`<div style="font-size:10px;color:var(--accent);font-weight:700">${auto.label}</div>`:""}</td>
+      </tr>`}).join("")}
     </table></div>
     ${F(c,"staynote","宿泊特記","1階希望3名(車椅子貸出1名)")}
   </div></details>
@@ -521,7 +563,7 @@ function quoteView(){
     </div>
     <table>
       <tr><th style="width:34px">No.</th><th>内容</th><th>単価</th><th>数量</th><th>単位</th><th>金額</th></tr>
-      ${t.rooms.map(r=>row(`${r.type}(${nights(c)||1}泊)`,r.rate,r.n,"室",r.amt)).join("")}
+      ${t.rooms.map(r=>row(`${r.type}(${nights(c)||1}泊${r.auto?"・"+r.auto.label:""})`,r.perRoom,r.n,"室",r.amt)).join("")}
       ${t.items.map(i=>row(i.desc,i.price,i.qty,i.unit,i.amt)).join("")}
       ${tr("小計",t.sub)}${tr("サービス料(10%)",t.svc)}${tr("消費税(10%)",t.tax)}
       ${t.onsen?tr("入湯税",t.onsen):""}${t.disc?tr("お値引き",t.disc):""}
@@ -623,16 +665,70 @@ function calView(){
 }
 function shiftMonth(n){ const [y,m]=calMonth.split("-").map(Number);
   const d=new Date(y,m-1+n,1); calMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; render(); }
+/* ---------- 料金タブ(ランクカレンダー+料金表) ---------- */
+function setRank(d,v){ if(v) db.rates.cal[d]=v; else delete db.rates.cal[d]; save(); }
+function bulkRank(kind,v){
+  const [y,m]=calMonth.split("-").map(Number), days=new Date(y,m,0).getDate();
+  for(let d=1;d<=days;d++){
+    const w=new Date(y,m-1,d).getDay();
+    if(kind==="all"||(kind==="wend"&&(w===0||w===6))||(kind==="wday"&&w>=1&&w<=5))
+      setRank(`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`,v);
+  }
+  render();
+}
+function setRate(room,rank,v){
+  db.rates.table[room]=db.rates.table[room]||{};
+  if(v) db.rates.table[room][rank]=v; else delete db.rates.table[room][rank];
+  save();
+}
+function rateView(){
+  const [y,m]=calMonth.split("-").map(Number), days=new Date(y,m,0).getDate();
+  const wd=["日","月","火","水","木","金","土"];
+  let cal="";
+  for(let d=1;d<=days;d++){
+    const key=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const w=new Date(y,m-1,d).getDay(), cur=db.rates.cal[key]||"";
+    cal+=`<tr><td class="dt ${w===0||w===6?"wend":""}">${m}/${d}(${wd[w]})</td>
+      <td>${RANKS.map(r=>`<button class="btn ${cur===r?"":"sub"}" style="padding:4px 10px;margin-right:4px"
+        onclick="setRank('${key}','${cur===r?"":r}');render()">${r}</button>`).join("")}</td></tr>`;
+  }
+  const sel=`<select id="bulkRank" style="width:auto">${RANKS.map(r=>`<option>${r}</option>`).join("")}</select>`;
+  return `<div class="card">
+    <h2 style="font-size:15px;margin-bottom:6px">💴 部屋料金表(部屋タイプ × ランク・1室1泊)</h2>
+    <div class="hint" style="margin-bottom:8px">お手元の料金表Excelの値をここに登録(またはExcelを送ってもらえれば取り込みます)</div>
+    <div class="tblwrap"><table class="tbl">
+      <tr><th>部屋タイプ</th>${RANKS.map(r=>`<th style="width:80px">${r}</th>`).join("")}</tr>
+      ${M.rooms.map(room=>`<tr><td class="rowlab">${room}</td>
+        ${RANKS.map(r=>`<td class="num"><input inputmode="numeric" value="${esc((db.rates.table[room]||{})[r]||"")}"
+          oninput="setRate('${room.replace(/'/g,"\\'")}','${r}',this.value)"></td>`).join("")}</tr>`).join("")}
+    </table></div></div>
+  <div class="card">
+    <h2 style="font-size:15px;margin-bottom:6px">📅 料金ランクカレンダー(日ごと)</h2>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <button class="btn sub" onclick="shiftMonth(-1)">←</button>
+      <b style="font-size:16px">${y}年${m}月</b>
+      <button class="btn sub" onclick="shiftMonth(1)">→</button>
+      <span style="flex:1"></span>
+      ${sel}
+      <button class="btn sub" onclick="bulkRank('all',document.getElementById('bulkRank').value)">全日</button>
+      <button class="btn sub" onclick="bulkRank('wday',document.getElementById('bulkRank').value)">平日</button>
+      <button class="btn sub" onclick="bulkRank('wend',document.getElementById('bulkRank').value)">土日</button>
+    </div>
+    <div class="tblwrap"><table class="tbl calgrid">
+      <tr><th>日付</th><th>ランク(タップで選択・もう一度で解除)</th></tr>${cal}</table></div>
+  </div>`;
+}
 const backBar = c => `<div class="btnrow no-print">
   <button class="btn sub" onclick="go('edit','${c.id}')">← 編集に戻る</button>
   <button class="btn" onclick="window.print()">🖨 印刷 / PDF保存</button></div>`;
 /* ---------- render ---------- */
 function render(){
   const app=document.getElementById("app");
-  const v={list:listView,edit:editView,share:shareView,quote:quoteView,tt:ttView,cal:calView}[view.name];
+  const v={list:listView,edit:editView,share:shareView,quote:quoteView,tt:ttView,cal:calView,rate:rateView}[view.name];
   app.innerHTML=v();
   document.getElementById("tab-list").classList.toggle("on",["list","edit","share","quote","tt"].includes(view.name));
   document.getElementById("tab-cal").classList.toggle("on",view.name==="cal");
+  document.getElementById("tab-rate").classList.toggle("on",view.name==="rate");
 }
 render();
 </script>
