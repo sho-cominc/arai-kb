@@ -162,6 +162,12 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px}
 <script>
 "use strict";
 /* ---------- マスタ(要件定義・Excel版から移植) ---------- */
+const pad2 = n => String(n).padStart(2,"0");
+const timeList = (fromMin,toMin) => {
+  const a=[];
+  for(let t=fromMin; t<=toMin; t+=15) a.push(`${Math.floor(t/60)}:${pad2(t%60)}`);
+  return a;
+};
 const M = {
   statuses: ["引合","仮予約","確定","実施済","請求済","入金済","キャンセル"],
   kakudo: ["S","A","B","C"],
@@ -176,8 +182,11 @@ const M = {
   rooms: ["Superior (Single Use)","Superior Twin","Superior Double","Superior Family Twin",
     "Superior Triple","Superior Family Triple","Deluxe Double","Deluxe Twin",
     "Deluxe Twin (Single Use)","Deluxe Family Twin","Deluxe Double Twin","Deluxe Quadruple","t/c, driver"],
-  times: (()=>{const a=[];for(let t=6*60+30;t<=21*60;t+=15)a.push(`${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`);return a})(),
+  /* 時刻は食事ごとに営業時間内だけを出す(選択肢を短く・押し間違いを防ぐ) */
+  timesBreakfast: timeList(6*60+30, 10*60),    // 6:30〜10:00
+  timesDinner:    timeList(17*60,   20*60+30), // 17:00〜20:30
 };
+const mealTimes = meal => meal==="朝食" ? M.timesBreakfast : M.timesDinner;
 const MEAL_SLOTS = [[1,"朝食"],[1,"夕食"],[2,"朝食"],[2,"夕食"],[3,"朝食"],[3,"夕食"]];
 
 /* ---------- 保存 ---------- */
@@ -188,7 +197,6 @@ const save = () => localStorage.setItem(DB_KEY, JSON.stringify(db));
 const RANKS = ["S","A","B","C","D"];
 const WD = ["日","月","火","水","木","金","土"];
 /* ---------- 日付ユーティリティ(表記ゆれを作らないため必ずこれを通す) ---------- */
-const pad2 = n => String(n).padStart(2,"0");
 const dayKey = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
 const monthKey = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}`;
 const md = v => { const d = v instanceof Date ? v : new Date(v); return `${d.getMonth()+1}/${d.getDate()}`; };
@@ -483,7 +491,10 @@ function editView(){
         <td><select onchange="upd('${c.id}','meals',this.value,${i},'venue')">
           <option value=""></option>${M.restaurants.map(o=>`<option ${m.venue===o?"selected":""}>${o}</option>`).join("")}</select></td>
         <td><select onchange="upd('${c.id}','meals',this.value,${i},'time')">
-          <option value=""></option>${M.times.map(o=>`<option ${m.time===o?"selected":""}>${o}</option>`).join("")}</select></td>
+          <option value=""></option>${
+            // 既存データが営業時間外でも消えないよう、リストになければその値も残す
+            (mealTimes(m.meal).includes(m.time)||!m.time ? mealTimes(m.meal) : [m.time,...mealTimes(m.meal)])
+            .map(o=>`<option ${m.time===o?"selected":""}>${o}</option>`).join("")}</select></td>
         <td class="num" style="width:60px"><input inputmode="numeric" value="${esc(m.qty)}" oninput="upd('${c.id}','meals',this.value,${i},'qty')"></td>
       </tr>`).join("")}
     </table></div>
