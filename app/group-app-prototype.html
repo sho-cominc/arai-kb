@@ -1,0 +1,955 @@
+<title>団体受注 — GroupDesk</title>
+<style>
+:root{
+  --bg:#f4f6f4; --panel:#ffffff; --ink:#1f2724; --sub:#66716b;
+  --accent:#2f6f4f; --accent-ink:#ffffff; --accent-soft:#e4efe8;
+  --line:#d9ded9; --warn:#b4552a; --warn-soft:#fdeae0;
+  --danger:#c03636; --danger-soft:#fbe3e3; --ok:#2f6f4f;
+  --chip:#eef1ee; --input:#fffdf4; --input-line:#cfd6cf;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#161a18; --panel:#1f2523; --ink:#e7ebe8; --sub:#98a39c;
+    --accent:#6fb391; --accent-ink:#10241a; --accent-soft:#243b30;
+    --line:#3a423d; --warn:#e09363; --warn-soft:#3b2b20;
+    --danger:#e58a8a; --danger-soft:#3d2424; --ok:#6fb391;
+    --chip:#2a312d; --input:#262c28; --input-line:#48524b; }
+}
+:root[data-theme="dark"]{ --bg:#161a18; --panel:#1f2523; --ink:#e7ebe8; --sub:#98a39c;
+  --accent:#6fb391; --accent-ink:#10241a; --accent-soft:#243b30;
+  --line:#3a423d; --warn:#e09363; --warn-soft:#3b2b20;
+  --danger:#e58a8a; --danger-soft:#3d2424; --ok:#6fb391;
+  --chip:#2a312d; --input:#262c28; --input-line:#48524b; }
+:root[data-theme="light"]{ --bg:#f4f6f4; --panel:#ffffff; --ink:#1f2724; --sub:#66716b;
+  --accent:#2f6f4f; --accent-ink:#ffffff; --accent-soft:#e4efe8;
+  --line:#d9ded9; --warn:#b4552a; --warn-soft:#fdeae0;
+  --danger:#c03636; --danger-soft:#fbe3e3; --ok:#2f6f4f;
+  --chip:#eef1ee; --input:#fffdf4; --input-line:#cfd6cf; }
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Kaku Gothic ProN","Yu Gothic Medium","Yu Gothic","Noto Sans JP",sans-serif;
+  font-size:15px;line-height:1.6;padding-bottom:70px}
+main{max-width:860px;margin:0 auto;padding:12px 12px 24px}
+h1,h2,h3{margin:0}
+button{font:inherit;cursor:pointer;border:none;border-radius:8px}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--input);
+  border:1px solid var(--input-line);border-radius:8px;padding:8px 10px;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+label{font-size:12px;font-weight:700;color:var(--sub);display:block;margin-bottom:3px}
+.req label::after{content:" *";color:var(--danger)}
+.field{margin-bottom:12px}
+.field .hint{font-size:11px;color:var(--sub);margin-top:2px}
+.field.missing input,.field.missing select{border-color:var(--danger);background:var(--danger-soft)}
+
+/* topbar */
+.topbar{position:sticky;top:0;z-index:20;background:var(--accent);color:var(--accent-ink);
+  display:flex;align-items:center;gap:10px;padding:10px 14px}
+.topbar .brand{font-weight:800;font-size:16px;letter-spacing:.02em}
+.topbar .spacer{flex:1}
+.topbar button{background:rgba(255,255,255,.16);color:inherit;padding:6px 12px;font-weight:700}
+
+/* tabbar */
+.tabbar{position:fixed;bottom:0;left:0;right:0;z-index:20;display:flex;
+  background:var(--panel);border-top:1px solid var(--line)}
+.tabbar button{flex:1;background:none;color:var(--sub);padding:9px 0 8px;border-radius:0;
+  font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tabbar button .ico{font-size:19px;line-height:1}
+.tabbar button.on{color:var(--accent)}
+
+/* cards */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:14px;margin-bottom:10px}
+.case-card{display:block;width:100%;text-align:left;background:var(--panel);
+  border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.case-card:active{background:var(--accent-soft)}
+.case-card .row1{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.case-card .name{font-weight:800;font-size:15px}
+.case-card .meta{color:var(--sub);font-size:12.5px;margin-top:3px}
+.chip{display:inline-block;border-radius:99px;padding:1px 10px;font-size:11.5px;font-weight:700;
+  background:var(--chip);color:var(--sub);white-space:nowrap}
+.chip.s-引合{background:var(--chip)}
+.chip.s-仮予約{background:var(--warn-soft);color:var(--warn)}
+.chip.s-確定{background:var(--accent-soft);color:var(--accent)}
+.chip.s-実施済,.chip.s-請求済,.chip.s-入金済{background:var(--chip);color:var(--sub)}
+.chip.s-キャンセル{background:var(--danger-soft);color:var(--danger);text-decoration:line-through}
+.chip.code{font-family:ui-monospace,Menlo,monospace;background:var(--chip);color:var(--ink)}
+.chip.alert{background:var(--danger-soft);color:var(--danger)}
+
+.btn{background:var(--accent);color:var(--accent-ink);padding:10px 18px;font-weight:800}
+.btn.sub{background:var(--chip);color:var(--ink)}
+.btn.ghost{background:none;border:1px solid var(--line);color:var(--sub)}
+.btn.danger{background:var(--danger-soft);color:var(--danger)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+
+/* form sections */
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.sec>summary{list-style:none;cursor:pointer;padding:11px 14px;font-weight:800;font-size:14px;
+  display:flex;align-items:center;gap:8px;background:var(--accent-soft);color:var(--accent)}
+.sec>summary::-webkit-details-marker{display:none}
+.sec>summary .st{margin-left:auto;font-size:11px;font-weight:700}
+.sec .body{padding:12px 14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+@media(max-width:520px){.grid2{grid-template-columns:1fr}}
+.auto{background:var(--accent-soft);border-radius:8px;padding:8px 10px;font-weight:700;
+  font-family:ui-monospace,Menlo,monospace}
+
+/* readiness */
+.ready{position:sticky;top:46px;z-index:15;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:8px 12px;margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+  box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.ready .r{font-size:12px;font-weight:700;border-radius:99px;padding:2px 10px}
+.ready .ok{background:var(--accent-soft);color:var(--accent)}
+.ready .ng{background:var(--danger-soft);color:var(--danger)}
+
+/* tables */
+table.tbl{border-collapse:collapse;width:100%;font-size:13px}
+.tbl th{background:var(--chip);font-size:11.5px;padding:5px 6px;border:1px solid var(--line);white-space:nowrap}
+.tbl td{border:1px solid var(--line);padding:3px}
+.tbl td input,.tbl td select{border:none;background:none;padding:6px 6px;border-radius:0}
+.tbl td.num input{text-align:right;font-variant-numeric:tabular-nums}
+.tbl .rowlab{background:var(--chip);font-size:11.5px;font-weight:700;padding:5px 8px;white-space:nowrap}
+.tblwrap{overflow-x:auto}
+.amount{font-variant-numeric:tabular-nums;text-align:right;padding:6px 8px;white-space:nowrap}
+
+/* 料金ランクの月グリッド(元のExcelと見比べて照合するための表示) */
+.rkgrid{border-collapse:collapse;width:100%;table-layout:fixed}
+.rkgrid th{background:var(--chip);font-size:11px;padding:3px;border:1px solid var(--line)}
+.rkgrid th.wend{color:var(--warn)}
+.rkcell{border:1px solid var(--line);text-align:center;padding:3px 0;cursor:pointer;height:44px;vertical-align:middle}
+.rkcell .dnum{font-size:10px;color:var(--sub);line-height:1}
+.rkcell .rk{font-size:15px;font-weight:800;line-height:1.1}
+.rkcell.rk-empty{background:transparent;border-color:transparent;cursor:default}
+.rkcell.rk-none .rk{color:var(--sub);font-weight:400}
+.rk-S{background:#f6dede;color:#8e2020}
+.rk-A{background:#fbe6cf;color:#8a4b12}
+.rk-B{background:#fbf4cd;color:#7a6410}
+.rk-C{background:#dcefdc;color:#245c2a}
+.rk-D{background:#d8e6f5;color:#1d4e79}
+@media (prefers-color-scheme: dark){
+  .rk-S{background:#4a2222;color:#f0b9b9} .rk-A{background:#4a3520;color:#f0cba0}
+  .rk-B{background:#454020;color:#eee0a0} .rk-C{background:#223d26;color:#a9d9ae}
+  .rk-D{background:#1f3446;color:#a8cae8}
+}
+:root[data-theme="dark"] .rk-S{background:#4a2222;color:#f0b9b9}
+:root[data-theme="dark"] .rk-A{background:#4a3520;color:#f0cba0}
+:root[data-theme="dark"] .rk-B{background:#454020;color:#eee0a0}
+:root[data-theme="dark"] .rk-C{background:#223d26;color:#a9d9ae}
+:root[data-theme="dark"] .rk-D{background:#1f3446;color:#a8cae8}
+
+/* calendar */
+.calgrid th,.calgrid td{font-size:12px}
+.calgrid td{padding:4px 6px;min-width:90px}
+.calgrid td.busy{background:var(--accent-soft)}
+.calgrid td.dup{background:var(--danger-soft);color:var(--danger);font-weight:800}
+.calgrid td.wend{background:var(--chip)}
+.calgrid .dt{white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* print views */
+.paper{background:#fff;color:#1a1a1a;border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:12px}
+.paper h2{font-size:18px;border-bottom:2px solid #1a1a1a;padding-bottom:6px;margin-bottom:12px}
+.paper table{border-collapse:collapse;width:100%;font-size:13px}
+.paper th{background:#f0f0f0;border:1px solid #999;padding:4px 8px;font-size:12px;white-space:nowrap}
+.paper td{border:1px solid #999;padding:4px 8px}
+.paper .alert-row{background:#fde8e8;font-weight:700}
+.paper .secband{background:#dde5ee;font-weight:800;padding:3px 8px;border:1px solid #999}
+.kv{display:grid;grid-template-columns:90px 1fr 90px 1fr;border:1px solid #999;border-bottom:none}
+.kv>div{border-bottom:1px solid #999;padding:4px 8px;font-size:13px}
+.kv .k{background:#f0f0f0;font-weight:700;font-size:12px;border-right:1px solid #999}
+.kv .v{border-right:1px solid #999}
+@media(max-width:520px){.kv{grid-template-columns:80px 1fr}}
+.empty{color:var(--sub);text-align:center;padding:40px 10px}
+.search{margin-bottom:10px}
+.viewtabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.viewtabs button{background:var(--chip);color:var(--sub);padding:7px 14px;font-weight:700;font-size:13px}
+.viewtabs button.on{background:var(--accent);color:var(--accent-ink)}
+@media print{
+  body{background:#fff;padding:0}
+  .topbar,.tabbar,.viewtabs,.btnrow,.ready,.no-print{display:none!important}
+  .paper{border:none;border-radius:0;padding:0}
+  main{max-width:none;padding:0}
+}
+</style>
+
+<div class="topbar no-print">
+  <div class="brand">🏨 GroupDesk</div>
+  <div class="spacer"></div>
+  <button onclick="window.print()">🖨 印刷/PDF</button>
+</div>
+<main id="app"></main>
+<nav class="tabbar no-print">
+  <button id="tab-list" onclick="go('list')"><span class="ico">📋</span>案件</button>
+  <button id="tab-cal" onclick="go('cal')"><span class="ico">📅</span>カレンダー</button>
+  <button id="tab-rate" onclick="go('rate')"><span class="ico">💴</span>料金</button>
+  <button id="tab-new" onclick="newCase()"><span class="ico">＋</span>新規</button>
+</nav>
+
+<script>
+"use strict";
+/* ---------- マスタ(要件定義・Excel版から移植) ---------- */
+const pad2 = n => String(n).padStart(2,"0");
+const timeList = (fromMin,toMin) => {
+  const a=[];
+  for(let t=fromMin; t<=toMin; t+=15) a.push(`${Math.floor(t/60)}:${pad2(t%60)}`);
+  return a;
+};
+const M = {
+  statuses: ["引合","仮予約","確定","実施済","請求済","入金済","キャンセル"],
+  kakudo: ["S","A","B","C"],
+  pay: ["未定","現地支払","事前振込","売掛"],
+  taxsv: ["サ込税込","サ込税別","税サ別"],
+  venues: ["宴会場","多目的ホール","ザ・プレート","あさ日","BECO","矢代"],
+  restaurants: ["ザ・プレート","あさ日","矢代","BECO"],
+  layouts: ["シアター","スクール","円卓","立食"],
+  items: ["宴会","料飲","送迎","その他"],
+  units: ["名","式","台","室","個","本"],
+  greets: ["なし","セールス立ち会い","支配人挨拶","その他(詳細に記入)"],
+  rooms: ["Superior (Single Use)","Superior Twin","Superior Double","Superior Family Twin",
+    "Superior Triple","Superior Family Triple","Deluxe Double","Deluxe Twin",
+    "Deluxe Twin (Single Use)","Deluxe Family Twin","Deluxe Double Twin","Deluxe Quadruple","t/c, driver"],
+  /* 時刻は食事ごとに営業時間内だけを出す(選択肢を短く・押し間違いを防ぐ) */
+  timesBreakfast: timeList(6*60+30, 10*60),    // 6:30〜10:00
+  timesDinner:    timeList(17*60,   20*60+30), // 17:00〜20:30
+};
+const mealTimes = meal => meal==="朝食" ? M.timesBreakfast : M.timesDinner;
+const MEAL_SLOTS = [[1,"朝食"],[1,"夕食"],[2,"朝食"],[2,"夕食"],[3,"朝食"],[3,"夕食"]];
+
+/* ---------- 保存 ---------- */
+const DB_KEY = "groupdesk.v1";
+let db = JSON.parse(localStorage.getItem(DB_KEY) || "null") || { cases: [], seq: 1 };
+db.rates = db.rates || { cal: {}, table: {} };   // cal: {"2026-08-15":"A"} / table: {部屋タイプ:{ランク:単価}}
+const save = () => localStorage.setItem(DB_KEY, JSON.stringify(db));
+const RANKS = ["S","A","B","C","D"];
+const WD = ["日","月","火","水","木","金","土"];
+/* ---------- 日付ユーティリティ(表記ゆれを作らないため必ずこれを通す) ---------- */
+const dayKey = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const monthKey = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}`;
+const md = v => { const d = v instanceof Date ? v : new Date(v); return `${d.getMonth()+1}/${d.getDate()}`; };
+/* 月内の各日を巡回して文字列を組み立てる(カレンダー3種で共用) */
+function eachDay(y,m,fn){
+  const days=new Date(y,m,0).getDate();
+  let out="";
+  for(let d=1; d<=days; d++){
+    const dt=new Date(y,m-1,d);
+    out+=fn({d, dt, key:dayKey(dt), w:dt.getDay(), wend:dt.getDay()%6===0});
+  }
+  return out;
+}
+/* この案件が占有する泊(=日付キーの配列)。滞在判定はすべてこの1関数に集約する。
+   C/O当日は含まない。日帰り(C/O未入力またはC/O=C/I)はC/I当日のみ。 */
+function stayDates(c){
+  if(!c.ci) return [];
+  const s=new Date(c.ci), e=c.co?new Date(c.co):null;
+  if(!e||e.getTime()<=s.getTime()) return [c.ci];
+  const out=[];
+  for(let d=new Date(s); d<e; d.setDate(d.getDate()+1)) out.push(dayKey(d));
+  return out;
+}
+/* 泊ごとのランク: 案件側の手動上書き > 料金カレンダー */
+function stayRanks(c){
+  return stayDates(c).map(d=>{
+    const ov=(c.rankOv||{})[d];
+    return {date:d, rank:ov||db.rates.cal[d]||"", ov:!!ov, calRank:db.rates.cal[d]||""};
+  });
+}
+function setRankOv(id,date,val){
+  const c=findCase(id); if(!c) return;
+  c.rankOv=c.rankOv||{};
+  if(val) c.rankOv[date]=val; else delete c.rankOv[date];
+  save(); render();
+}
+function autoRoomRate(c,type){
+  const ds=stayRanks(c);
+  if(!type||!ds.length) return null;
+  let total=0; const parts=[], nights=[];
+  for(const {date,rank} of ds){
+    const p = rank && db.rates.table[type] && N(db.rates.table[type][rank]);
+    if(!p) return null;   // ランク未設定 or 料金未登録の泊があれば自動不可(1泊でも欠けたら中断)
+    total+=p; parts.push(rank);
+    nights.push({date, rank, price:p});
+  }
+  return {total, label:"ランク"+parts.join("→")+" 自動", nights};
+}
+/* 泊ごとの内訳文字列: 8/15 A ¥14,960 + 8/16 B ¥12,000 */
+function nightBreakdown(auto){
+  if(!auto) return "";
+  return auto.nights.map(n=>`${md(n.date)} ${n.rank} ${yen(n.price)}`).join(" + ");
+}
+/* 自動化を阻んでいる原因を泊ごとに説明 */
+function autoBlockReason(c,type){
+  const ds=stayRanks(c);
+  if(!ds.length) return "日程を入れてください";
+  const noRank=ds.filter(d=>!d.rank), noPrice=ds.filter(d=>d.rank&&!(db.rates.table[type]||{})[d.rank]);
+  const fmt=a=>a.map(x=>md(x.date)).join("・");
+  if(noRank.length) return `${fmt(noRank)} のランク未設定`;
+  if(noPrice.length) return `${fmt(noPrice)}(ランク${noPrice.map(x=>x.rank).join("・")})の料金未登録`;
+  return "手入力を";
+}
+
+function blankCase(){
+  return { id: crypto.randomUUID(), groupno:"", company:"", group:"", tour:"", desc:"",
+    agent:"", contact:"", nation:"", tc:"", ci:"", co:"", arrival:"", depart:"",
+    greet:"", greetmemo:"", adult:"", child:"", tcnum:"",
+    stay:"宿泊あり", citime:"15:00", cotime:"10:00",
+    roomRows:Array.from({length:8},()=>({type:"",n:"",rate:""})), staynote:"", rankOv:{},
+    meals:MEAL_SLOTS.map(([d,m])=>({day:d,meal:m,menu:"",venue:"",time:"",qty:""})),
+    allergy:"", venue:"", venuetime:"", layout:"", equip:"", flow:"",
+    go:"", back:"", status:"引合", kakudo:"", karilimit:"", pay:"", taxsv:"",
+    items:Array.from({length:6},()=>({cat:"",desc:"",price:"",qty:"",unit:""})),
+    onsen:"", disc:"", sales:"", staff2:"", abbr:"", qno:"", qdate:"", qlimit:"", notes:"" };
+}
+/* ---------- 計算 ---------- */
+const N = v => { const x = parseFloat(String(v).replace(/,/g,"")); return isNaN(x)?0:x; };
+const yen = v => "¥" + Math.round(v).toLocaleString();
+const pax = c => (c.adult||c.child||c.tcnum) ? N(c.adult)+N(c.child)+N(c.tcnum) : "";
+const paxStr = c => pax(c)===""?"":`${pax(c)}名(大人${N(c.adult)}・子供${N(c.child)}・添乗員${N(c.tcnum)})`;
+const nights = c => (c.ci&&c.co) ? Math.round((new Date(c.co)-new Date(c.ci))/864e5) : "";
+function blockCode(c){
+  if(!c.ci||!c.abbr) return "";
+  const d=new Date(c.ci);
+  return pad2(d.getMonth()+1) + pad2(d.getDate()) + c.abbr.toUpperCase().padEnd(4,"X").slice(0,4) + "01";
+}
+const fmtD = (s,opt) => s ? new Date(s).toLocaleDateString("ja-JP",opt||{month:"numeric",day:"numeric",weekday:"short"}) : "";
+function mealDate(c,day){ if(!c.ci) return ""; const d=new Date(c.ci); d.setDate(d.getDate()+day-1); return `(${md(d)})`; }
+/* 部屋1行の料金判定。表示(入力画面)と集計(見積)が必ず同じ値を使うよう、計算はここだけ。
+   手入力があればそれが優先。auto は手入力時も参考表示(プレースホルダ)に使うので常に返す。 */
+function priceRoom(c,r){
+  const manual = N(r.rate)>0;
+  const auto = r.type ? autoRoomRate(c,r.type) : null;   // 参考表示用。手入力中も算出する
+  const autoApplied = manual ? null : auto;              // 実際に金額へ反映された自動料金だけ
+  const perRoom = manual ? N(r.rate)*N(nights(c)||1) : (auto?auto.total:0);
+  return {manual, auto, autoApplied, perRoom, amt:N(r.n)*perRoom};
+}
+function roomLines(c){
+  return c.roomRows.filter(r=>r.type&&N(r.n)).map(r=>({...r, ...priceRoom(c,r)}));
+}
+function itemLines(c){ return c.items.filter(i=>i.desc&&(N(i.price)||N(i.qty))).map(i=>({...i, amt:N(i.price)*N(i.qty)})); }
+function totals(c){
+  const rooms=roomLines(c), items=itemLines(c);
+  const sub=rooms.reduce((s,r)=>s+r.amt,0)+items.reduce((s,i)=>s+i.amt,0);
+  const svc=Math.round(sub*0.1), tax=Math.round((sub+svc)*0.1);
+  const total=sub+svc+tax+N(c.onsen)+N(c.disc);
+  return {rooms,items,sub,svc,tax,onsen:N(c.onsen),disc:N(c.disc),total};
+}
+/* 成果物別レディネス */
+function readiness(c){
+  const miss=[];
+  if(!c.ci) miss.push("C/I日"); if(!c.co) miss.push("C/O日");
+  if(!c.adult) miss.push("大人人数"); if(!c.status) miss.push("ステータス");
+  if(!c.groupno) miss.push("予約番号"); if(!c.allergy) miss.push("アレルギー");
+  if(!c.greet) miss.push("お出迎え・挨拶");
+  const shareOK = miss.length===0;
+  const t=totals(c);
+  const quoteOK = shareOK && (t.sub>0);
+  const kariNG = c.status==="仮予約" && !c.karilimit;
+  return {miss, shareOK, quoteOK, kariNG};
+}
+/* ---------- 画面制御 ---------- */
+let view={name:"list"}, cur=null;
+function go(name,arg){ view={name,arg}; render(); window.scrollTo(0,0); }
+function newCase(){ cur=blankCase(); db.cases.unshift(cur); save(); go("edit",cur.id); }
+function findCase(id){ return db.cases.find(c=>c.id===id); }
+const esc = s => String(s??"").replace(/[&<>"]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+/* 一覧・カレンダーで案件を指す表示名(見積書の「件名」はツアー名優先なので別扱い) */
+const caseName = c => c.group||c.company||c.tour||"(名称未入力)";
+/* キャンセルは在庫も件数も占有しない — この判定は必ずここを通す */
+const activeCases = () => db.cases.filter(c=>c.status!=="キャンセル");
+function upd(id,key,val,idx,sub){
+  const c=findCase(id); if(!c) return;
+  if(idx===undefined) c[key]=val; else c[key][idx][sub]=val;
+  save(); softRefresh(c);
+}
+function softRefresh(c){
+  const el=document.getElementById("readybar"); if(el) el.outerHTML=readyBar(c);
+  const bc=document.getElementById("bcode"); if(bc) bc.textContent=blockCode(c)||"(C/I日と略号で自動生成)";
+  const tt=document.getElementById("liveTotal"); if(tt) tt.textContent=yen(totals(c).total);
+  /* 入力中に金額列も追従させる(セル書き換えなのでフォーカスは外れない) */
+  c.roomRows.forEach((r,i)=>{ const td=document.getElementById("roomAmt"+i); if(td) td.innerHTML=roomAmtHTML(c,r); });
+  c.items.forEach((it,i)=>{ const td=document.getElementById("itemAmt"+i); if(td) td.innerHTML=itemAmtHTML(it); });
+  document.querySelectorAll("[data-req]").forEach(f=>{
+    const inp=f.querySelector("input,select"); if(inp) f.classList.toggle("missing", !inp.value);
+  });
+}
+/* ---------- 案件一覧 ---------- */
+function listView(){
+  const q=(view.arg||"").toLowerCase();
+  const cs=db.cases.filter(c=>!q||[c.group,c.company,c.tour,c.groupno,blockCode(c)].join(" ").toLowerCase().includes(q));
+  return `<input class="search no-print" placeholder="🔍 検索(団体名・番号・コード)" value="${esc(view.arg||"")}"
+    oninput="view.arg=this.value;document.getElementById('cl').innerHTML=caseCards()">
+  <div id="cl">${caseCards(cs)}</div>`;
+}
+function caseCards(cs){
+  cs = cs || db.cases;
+  if(!cs.length) return `<div class="empty">案件がありません。「＋新規」から作成してください。</div>`;
+  return cs.map(c=>{
+    const r=readiness(c);
+    return `<button class="case-card" onclick="go('edit','${c.id}')">
+      <div class="row1">
+        <span class="name">${esc(caseName(c))}</span>
+        <span class="chip s-${c.status}">${c.status}</span>
+        ${c.kakudo?`<span class="chip">${c.kakudo}</span>`:""}
+        ${blockCode(c)?`<span class="chip code">${blockCode(c)}</span>`:""}
+        ${r.kariNG?`<span class="chip alert">仮予約期限 未入力!</span>`:""}
+        ${r.miss.length?`<span class="chip alert">残${r.miss.length}項目</span>`:`<span class="chip" style="background:var(--accent-soft);color:var(--accent)">入力完了</span>`}
+      </div>
+      <div class="meta">${fmtD(c.ci)}${c.co?" 〜 "+fmtD(c.co):""} ${paxStr(c)} ${c.venue?"/ "+esc(c.venue):""} ${c.sales?"/ 営業:"+esc(c.sales):""}</div>
+    </button>`}).join("");
+}
+/* ---------- フォーム部品 ---------- */
+const F = (c,key,label,ph,type,req,hint)=>`
+  <div class="field ${req?"req":""} ${req&&!c[key]?"missing":""}" ${req?'data-req="1"':""}>
+    <label>${label}</label>
+    <input type="${type||"text"}" value="${esc(c[key])}" placeholder="${ph||""}"
+      oninput="upd('${c.id}','${key}',this.value)">
+    ${hint?`<div class="hint">${hint}</div>`:""}
+  </div>`;
+/* select の中身。空欄+選択状態の付与を1箇所に集約(付け忘れを防ぐ) */
+const optList = (list,sel) => `<option value=""></option>` +
+  list.map(o=>`<option ${o===sel?"selected":""}>${o}</option>`).join("");
+const S = (c,key,label,opts,req)=>`
+  <div class="field ${req?"req":""} ${req&&!c[key]?"missing":""}" ${req?'data-req="1"':""}>
+    <label>${label}</label>
+    <select onchange="upd('${c.id}','${key}',this.value)">${optList(opts,c[key])}</select>
+  </div>`;
+/* 金額セルの中身。入力中も即時更新するので、描画と再計算で同じものを使う */
+function roomAmtHTML(c,r){
+  if(!r.type||!N(r.n)) return "";
+  const {manual,auto,perRoom} = priceRoom(c,r);
+  const note = manual ? `手動料金(${nights(c)||1}泊×${N(r.n)}室)`
+    : (auto ? `${auto.label}<div style="font-weight:400;color:var(--sub);font-size:9.5px">${
+        nightBreakdown(auto)} = ${yen(auto.total)}/室</div>`
+            : `⚠ 自動不可: ${autoBlockReason(c,r.type)}`);
+  const color = manual ? "var(--warn)" : (auto ? "var(--accent)" : "var(--danger)");
+  return `${perRoom?yen(N(r.n)*perRoom):""}<div style="font-size:10px;font-weight:700;color:${color}">${note}</div>`;
+}
+const itemAmtHTML = it => it.desc ? yen(N(it.price)*N(it.qty)) : "";
+function readyBar(c){
+  const r=readiness(c);
+  return `<div class="ready" id="readybar">
+    <span class="r ${r.shareOK?"ok":"ng"}">共有シート ${r.shareOK?"✓発行可":"✗"}</span>
+    <span class="r ${r.quoteOK?"ok":"ng"}">見積書 ${r.quoteOK?"✓発行可":"✗"}</span>
+    ${r.kariNG?`<span class="r ng">仮予約期限!</span>`:""}
+    ${r.miss.length?`<span style="font-size:11.5px;color:var(--sub)">残: ${r.miss.join("・")}</span>`:""}
+  </div>`;
+}
+/* ---------- 編集画面 ---------- */
+function editView(){
+  const c=findCase(view.arg); if(!c) return `<div class="empty">案件が見つかりません</div>`;
+  cur=c;
+  const t=totals(c);
+  return `
+  <div class="btnrow no-print">
+    <button class="btn sub" onclick="go('list')">← 一覧</button>
+    <button class="btn" onclick="go('share','${c.id}')">📄 共有シート</button>
+    <button class="btn" onclick="go('quote','${c.id}')">💴 見積書</button>
+    <button class="btn sub" onclick="go('tt','${c.id}')">🕐 工程表</button>
+    <button class="btn danger" onclick="if(confirm('この案件を削除しますか?')){db.cases=db.cases.filter(x=>x.id!=='${c.id}');save();go('list')}">削除</button>
+  </div>
+  ${readyBar(c)}
+
+  <details class="sec" open><summary>1. お相手(誰が)</summary><div class="body"><div class="grid2">
+    ${F(c,"company","会社名","田中産業株式会社")}
+    ${F(c,"group","団体名","田中産業 親睦会ご一行様")}
+    ${F(c,"tour","ツアー名","2026年度 社員親睦旅行")}
+    ${F(c,"desc","概要","社員旅行(宴会・送迎あり)")}
+    ${F(c,"agent","取引先/エージェント","直受け / ㈱○○トラベル")}
+    ${F(c,"contact","先方担当者・連絡先","田中 一郎 様(090-0000-0000)")}
+    ${F(c,"nation","国籍 / Tour No.","Japan / -")}
+    ${F(c,"tc","添乗員・TEL","山田様(080-0000-0000)")}
+  </div></div></details>
+
+  <details class="sec" open><summary>2. 日程・受け入れ</summary><div class="body"><div class="grid2">
+    ${F(c,"ci","利用開始日(C/I)","","date",true)}
+    ${F(c,"co","利用終了日(C/O)","","date",true)}
+    ${F(c,"arrival","到着手段・時刻","貸切バス 15:00着予定")}
+    ${F(c,"depart","出発時刻","10:00発")}
+    ${S(c,"greet","お出迎え・挨拶",M.greets,true)}
+    ${F(c,"greetmemo","挨拶詳細(誰が・どこで)","セールス清水 15:00 ロビー")}
+  </div></div></details>
+
+  <details class="sec" open><summary>3. 人数</summary><div class="body"><div class="grid2">
+    ${F(c,"adult","大人","38","number",true)}
+    ${F(c,"child","子供(4-12歳)","0","number")}
+    ${F(c,"tcnum","添乗員・乗務員","0","number")}
+    <div class="field"><label>合計(自動)</label><div class="auto">${pax(c)===""?"—":pax(c)+"名"}</div></div>
+  </div></div></details>
+
+  <details class="sec" open><summary>4. 宿泊</summary><div class="body">
+    <div class="grid2">
+      ${S(c,"stay","宿泊有無",["宿泊あり","日帰り"])}
+      <div class="field"><label>泊数(自動)</label><div class="auto">${nights(c)===""?"—":nights(c)+"泊"}</div></div>
+      ${F(c,"citime","チェックイン時刻","15:00")}
+      ${F(c,"cotime","チェックアウト時刻","10:00")}
+    </div>
+    ${(()=>{const rs=stayRanks(c); if(!rs.length) return "";
+      const miss=rs.some(r=>!r.rank);
+      return `<div style="font-size:12px;margin-bottom:8px;padding:8px 10px;border-radius:8px;
+        background:${miss?"var(--warn-soft)":"var(--accent-soft)"}">
+        <b style="color:${miss?"var(--warn)":"var(--accent)"}">この日程の料金ランク</b>
+        <span style="color:var(--sub)"> — 料金カレンダーから自動。変更したい泊は選び直せます</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        ${rs.map(r=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--panel);
+            border:1px solid ${r.ov?"var(--warn)":"var(--line)"};border-radius:8px;padding:3px 6px">
+            <b style="font-size:11px">${md(r.date)}</b>
+            <select style="width:auto;padding:2px 4px;font-size:12px" onchange="setRankOv('${c.id}','${r.date}',this.value)">
+              <option value="">${r.calRank?"自動("+r.calRank+")":"未設定⚠"}</option>
+              ${RANKS.map(k=>`<option ${r.ov&&r.rank===k?"selected":""}>${k}</option>`).join("")}
+            </select>${r.ov?'<span style="font-size:10px;color:var(--warn);font-weight:700">手動</span>':""}
+          </span>`).join("")}
+        </div>
+        ${miss?'<div style="font-size:11px;color:var(--warn);margin-top:4px">「未設定」の泊は自動料金が出ません。料金タブでランクを登録するか、ここで直接指定してください</div>':""}
+      </div>`})()}
+    <label>部屋タイプ(最大8) — 料金は自動。上書きしたい行だけ数字を入れる</label>
+    <div class="tblwrap"><table class="tbl">
+      <tr><th>部屋タイプ</th><th>室数</th><th>料金(1室1泊)</th><th>金額</th></tr>
+      ${c.roomRows.map((r,i)=>{
+        const {manual, auto, perRoom} = priceRoom(c,r);
+        return `<tr>
+        <td><select onchange="upd('${c.id}','roomRows',this.value,${i},'type');render()">
+          ${optList(M.rooms,r.type)}</select></td>
+        <td class="num" style="width:70px"><input inputmode="numeric" value="${esc(r.n)}" oninput="upd('${c.id}','roomRows',this.value,${i},'n')"></td>
+        <td class="num" style="width:130px;${manual?"background:var(--warn-soft)":""}">
+          <div style="display:flex;align-items:center;gap:2px">
+          <input inputmode="numeric" value="${esc(r.rate)}"
+            placeholder="${auto?Math.round(auto.total/(N(nights(c))||1)).toLocaleString()+" (自動)":"手入力"}"
+            oninput="upd('${c.id}','roomRows',this.value,${i},'rate')">
+          ${manual?`<button class="btn ghost" style="padding:2px 6px;font-size:11px;flex:none"
+            title="自動料金に戻す" onclick="upd('${c.id}','roomRows','',${i},'rate');render()">↺</button>`:""}
+          </div></td>
+        <td class="amount" id="roomAmt${i}">${roomAmtHTML(c,r)}</td>
+      </tr>`}).join("")}
+    </table></div>
+    ${F(c,"staynote","宿泊特記","1階希望3名(車椅子貸出1名)")}
+  </div></details>
+
+  <details class="sec" open><summary>5. 食事(1〜3日目)</summary><div class="body">
+    <div class="tblwrap"><table class="tbl">
+      <tr><th>区分</th><th>内容</th><th>会場</th><th>時刻</th><th>数量</th></tr>
+      ${c.meals.map((m,i)=>`<tr>
+        <td class="rowlab">${m.day}日目${mealDate(c,m.day)} ${m.meal}</td>
+        <td style="min-width:150px"><input value="${esc(m.menu)}" placeholder="${i===1?"宴会コース+飲放90分":""}" oninput="upd('${c.id}','meals',this.value,${i},'menu')"></td>
+        <td><select onchange="upd('${c.id}','meals',this.value,${i},'venue')">
+          ${optList(M.restaurants,m.venue)}</select></td>
+        <td><select onchange="upd('${c.id}','meals',this.value,${i},'time')">
+          ${optList(
+            // 既存データが営業時間外でも消えないよう、リストになければその値も残す
+            m.time&&!mealTimes(m.meal).includes(m.time) ? [m.time,...mealTimes(m.meal)] : mealTimes(m.meal),
+            m.time)}</select></td>
+        <td class="num" style="width:60px"><input inputmode="numeric" value="${esc(m.qty)}" oninput="upd('${c.id}','meals',this.value,${i},'qty')"></td>
+      </tr>`).join("")}
+    </table></div>
+    <div style="height:8px"></div>
+    ${F(c,"allergy","アレルギー","なし ←無い場合も必ず記入","text",true)}
+  </div></details>
+
+  <details class="sec"><summary>6. 宴会・会場</summary><div class="body"><div class="grid2">
+    ${S(c,"venue","会場",M.venues)}
+    ${F(c,"venuetime","設営/本番/撤収","17:00設営 / 18:00-20:00 / 21:00撤収")}
+    ${S(c,"layout","レイアウト",M.layouts)}
+    ${F(c,"equip","機材・備品","マイク2・プロジェクター")}
+  </div>${F(c,"flow","進行メモ","19:00頃 社長表彰(照明・マイク)")}</div></details>
+
+  <details class="sec"><summary>7. 送迎</summary><div class="body">
+    ${F(c,"go","往路","8/15 上越妙高駅 14:30発 → ホテル(バス2台)")}
+    ${F(c,"back","復路","8/16 ホテル 10:00発 → 上越妙高駅")}
+  </div></details>
+
+  <details class="sec" open><summary>8. 条件・ステータス</summary><div class="body"><div class="grid2">
+    ${S(c,"status","ステータス",M.statuses,true)}
+    ${S(c,"kakudo","確度",M.kakudo)}
+    ${F(c,"karilimit","仮予約期限","","date",false,c.status==="仮予約"&&!c.karilimit?"⚠ 仮予約なら必須です":"")}
+    ${S(c,"pay","支払方法",M.pay)}
+    ${S(c,"taxsv","税・サービス料",M.taxsv)}
+  </div></div></details>
+
+  <details class="sec"><summary>9. 見積明細(宴会・料飲・送迎など)</summary><div class="body">
+    <div class="hint" style="margin-bottom:6px">宿泊は部屋タイプ表から自動で見積に入ります</div>
+    <div class="tblwrap"><table class="tbl">
+      <tr><th>項目</th><th>内容</th><th>単価</th><th>数量</th><th>単位</th><th>金額</th></tr>
+      ${c.items.map((it,i)=>`<tr>
+        <td><select onchange="upd('${c.id}','items',this.value,${i},'cat')">
+          ${optList(M.items,it.cat)}</select></td>
+        <td style="min-width:150px"><input value="${esc(it.desc)}" oninput="upd('${c.id}','items',this.value,${i},'desc')"></td>
+        <td class="num" style="width:90px"><input inputmode="numeric" value="${esc(it.price)}" oninput="upd('${c.id}','items',this.value,${i},'price')"></td>
+        <td class="num" style="width:60px"><input inputmode="numeric" value="${esc(it.qty)}" oninput="upd('${c.id}','items',this.value,${i},'qty')"></td>
+        <td><select onchange="upd('${c.id}','items',this.value,${i},'unit')">
+          ${optList(M.units,it.unit)}</select></td>
+        <td class="amount" id="itemAmt${i}">${itemAmtHTML(it)}</td>
+      </tr>`).join("")}
+    </table></div>
+    <div class="grid2" style="margin-top:8px">
+      ${F(c,"onsen","入湯税(円)","150×人数×泊数","number")}
+      ${F(c,"disc","値引き(マイナス)","-10000","number")}
+    </div>
+    <div style="text-align:right;font-size:16px;font-weight:800">合計(税・サ込): <span id="liveTotal">${yen(t.total)}</span></div>
+  </div></details>
+
+  <details class="sec" open><summary>10. 社内管理</summary><div class="body"><div class="grid2">
+    ${F(c,"groupno","予約番号","2026-070","text",true)}
+    ${F(c,"sales","担当営業","清水")}
+    ${F(c,"staff2","担当(手配/現地)","手配:宮本 / 現地:小池")}
+    ${F(c,"abbr","コード略号(英字4)","TANA")}
+    <div class="field"><label>ブロックコード(自動・Opera用)</label><div class="auto" id="bcode">${blockCode(c)||"(C/I日と略号で自動生成)"}</div></div>
+    ${F(c,"qno","見積番号","Q-2026-0001")}
+    ${F(c,"qdate","発行日","","date")}
+    ${F(c,"qlimit","見積有効期限","","date")}
+  </div></div></details>
+
+  <details class="sec" open><summary>11. 特記事項・引き継ぎメモ</summary><div class="body">
+    <textarea rows="5" placeholder="幹事様の昨年の経緯 / 表彰・サプライズ / 雨天時の対応 など"
+      oninput="upd('${c.id}','notes',this.value)">${esc(c.notes)}</textarea>
+  </div></details>`;
+}
+/* ---------- 共有シート(印刷ビュー) ---------- */
+function shareView(){
+  const c=findCase(view.arg); if(!c) return "";
+  const t=totals(c);
+  const meals=c.meals.filter(m=>m.menu||m.venue||m.time);
+  const kv=(k,v)=>v?`<div class="k">${k}</div><div class="v">${esc(v)}</div>`:"";
+  const chk=(off,items)=>{const d=c.ci?new Date(c.ci):null; if(d)d.setDate(d.getDate()+off);
+    return `〆${d?`${d.getMonth()+1}/${d.getDate()}`:""}  ${items}`};
+  return `${backBar(c)}
+  <div class="paper">
+    <h2>団体案件 社内共有シート
+      <span style="float:right;font-size:14px;font-family:ui-monospace,Menlo,monospace">${blockCode(c)} / ${esc(c.groupno)}</span></h2>
+    <div class="kv">
+      ${kv("ステータス",c.status+(c.kakudo?` (確度${c.kakudo})`:"")+(c.status==="仮予約"&&c.karilimit?` 期限:${fmtD(c.karilimit)}`:""))}
+      ${kv("営業担当",c.sales)}
+      ${kv("会社名",c.company)}${kv("利用期間",c.ci?`${fmtD(c.ci)} 〜 ${fmtD(c.co)}(${nights(c)}泊)`:"")}
+      ${kv("団体名",c.group)}${kv("人数",paxStr(c))}
+      ${kv("ツアー名",c.tour)}${kv("到着",c.arrival)}
+      ${kv("概要",c.desc)}${kv("出発",c.depart)}
+      ${kv("先方担当",c.contact)}${kv("支払方法",c.pay)}
+      ${kv("添乗員",c.tc)}${kv("取引先",c.agent)}
+      ${kv("手配/現地",c.staff2)}${kv("国籍",c.nation)}
+    </div>
+    ${roomLines(c).length||c.staynote||c.citime?`<div class="secband">■ 宿泊</div><div class="kv">
+      ${kv("部屋構成",roomLines(c).map(r=>`${r.type}×${r.n}室`).join("、"))}
+      ${kv("C/I・C/O",[c.citime,c.cotime].filter(Boolean).join(" / "))}
+      ${kv("宿泊特記",c.staynote)}</div>`:""}
+    ${meals.length||c.allergy?`<div class="secband">■ 食事</div>
+      <table>${meals.map(m=>`<tr><td style="width:110px;font-weight:700">${m.day}日目${mealDate(c,m.day)} ${m.meal}</td>
+        <td>${esc([m.time,m.venue,m.menu,m.qty?m.qty+"名":""].filter(Boolean).join("  "))}</td></tr>`).join("")}
+      <tr class="alert-row"><td>アレルギー</td><td>${esc(c.allergy||"※未入力!!")}</td></tr></table>`:""}
+    ${c.venue||c.flow?`<div class="secband">■ 宴会・会場</div><div class="kv">
+      ${kv("会場",c.venue)}${kv("設営/撤収",c.venuetime)}
+      ${kv("レイアウト",c.layout)}${kv("機材",c.equip)}${kv("進行メモ",c.flow)}</div>`:""}
+    ${c.go||c.back?`<div class="secband">■ 送迎</div><div class="kv">${kv("往路",c.go)}${kv("復路",c.back)}</div>`:""}
+    ${t.sub?`<div class="secband">■ 料金</div><div class="kv">${kv("見積合計",yen(t.total)+"(税込)")}${kv("見積番号",c.qno)}</div>`:""}
+    <div class="secband">■ フロント引き継ぎ・チェック欄</div>
+    <table>
+      <tr class="alert-row"><td style="width:110px">お出迎え・挨拶</td>
+        <td>${esc(c.greet?[c.greet,c.greetmemo].filter(Boolean).join(" — "):"※未入力!! 必ず選択してください")}</td></tr>
+      <tr><td>引き継ぎ</td><td>営業サイン:　　　　　／　フロント受領サイン:</td></tr>
+      <tr><td>2日前</td><td>${chk(-2,"□館内案内作成 □名前シール作成 □部屋割り連絡")}　担当:</td></tr>
+      <tr><td>1日前</td><td>${chk(-1,"□料金確認 □館内案内印刷")}　担当:</td></tr>
+      <tr><td>当日</td><td>${chk(0,"□名前シール印刷 □添乗員到着確認 □お出迎え・挨拶手配")}　担当:</td></tr>
+    </table>
+    ${c.notes?`<div class="secband">■ 特記事項・引き継ぎメモ</div>
+      <div style="border:1px solid #999;padding:8px;white-space:pre-wrap;min-height:70px">${esc(c.notes)}</div>`:""}
+  </div>`;
+}
+/* ---------- 見積書(印刷ビュー) ---------- */
+function quoteView(){
+  const c=findCase(view.arg); if(!c) return "";
+  const t=totals(c);
+  let no=0;
+  const row=(name,price,qty,unit,amt)=>`<tr><td style="text-align:center">${++no}</td>
+    <td>${esc(name)}</td><td class="amount">${price?N(price).toLocaleString():""}</td>
+    <td style="text-align:center">${qty||""}</td><td style="text-align:center">${unit||""}</td>
+    <td class="amount">${amt?Math.round(amt).toLocaleString():""}</td></tr>`;
+  const tr=(l,v,b)=>`<tr><td colspan="5" style="text-align:right;${b?"font-weight:800":""}">${l}</td>
+    <td class="amount" style="${b?"font-weight:800;font-size:15px":""}">${yen(v)}</td></tr>`;
+  return `${backBar(c)}
+  <div class="paper">
+    <div style="display:flex;justify-content:space-between;align-items:start">
+      <h2 style="border:none">御 見 積 書</h2>
+      <div style="font-size:12px;text-align:right">見積番号 ${esc(c.qno)}<br>発行日 ${fmtD(c.qdate,{year:"numeric",month:"numeric",day:"numeric"})}<br>
+        <span style="font-family:ui-monospace,Menlo,monospace">${blockCode(c)}</span></div>
+    </div>
+    <div style="font-size:16px;font-weight:800;border-bottom:1px solid #999;margin:6px 0">
+      ${esc(c.company)}${c.company?"  御中":""}</div>
+    ${c.group?`<div>${esc(c.group)}</div>`:""}${c.tour?`<div>${esc(c.tour)}</div>`:""}
+    ${c.contact?`<div style="font-size:13px">ご担当: ${esc(c.contact)}</div>`:""}
+    <p style="font-size:13px">下記のとおりお見積り申し上げます。</p>
+    <div class="kv" style="margin-bottom:10px">
+      <div class="k">件名</div><div class="v">${esc(c.tour||c.group||c.company)}</div>
+      <div class="k">御見積合計</div><div class="v" style="font-weight:800;font-size:16px">${yen(t.total)}(税込)</div>
+      <div class="k">ご利用期間</div><div class="v">${c.ci?`${fmtD(c.ci,{year:"numeric",month:"numeric",day:"numeric"})} 〜 ${fmtD(c.co,{month:"numeric",day:"numeric"})}`:""}</div>
+      <div class="k">ご利用人数</div><div class="v">${paxStr(c)}</div>
+      <div class="k">お支払方法</div><div class="v">${esc(c.pay)}</div>
+      <div class="k">有効期限</div><div class="v">${fmtD(c.qlimit,{year:"numeric",month:"numeric",day:"numeric"})}</div>
+    </div>
+    <table>
+      <tr><th style="width:34px">No.</th><th>内容</th><th>単価</th><th>数量</th><th>単位</th><th>金額</th></tr>
+      ${t.rooms.map(r=>row(`${r.type}(${nights(c)||1}泊${r.autoApplied?"・"+r.autoApplied.label:""})`,r.perRoom,r.n,"室",r.amt)).join("")}
+      ${t.items.map(i=>row(i.desc,i.price,i.qty,i.unit,i.amt)).join("")}
+      ${tr("小計",t.sub)}${tr("サービス料(10%)",t.svc)}${tr("消費税(10%)",t.tax)}
+      ${t.onsen?tr("入湯税",t.onsen):""}${t.disc?tr("お値引き",t.disc):""}
+      ${tr("御見積合計(税込)",t.total,true)}
+    </table>
+  </div>`;
+}
+/* ---------- 工程表 ---------- */
+function ttView(){
+  const c=findCase(view.arg); if(!c) return "";
+  const rows=[];
+  if(c.go) rows.push(["往路送迎",c.go]);
+  if(c.arrival) rows.push(["到着",c.arrival]);
+  if(c.greet&&c.greet!=="なし") rows.push(["お出迎え・挨拶",[c.greet,c.greetmemo].filter(Boolean).join(" ")]);
+  if(c.citime) rows.push(["チェックイン",c.citime]);
+  if(c.venuetime) rows.push(["会場設営〜撤収",`${c.venue?c.venue+" ":""}${c.venuetime}`]);
+  c.meals.filter(m=>m.menu||m.time).forEach(m=>rows.push([`食事 ${m.day}日目${mealDate(c,m.day)}${m.meal}`,[m.time,m.venue,m.menu].filter(Boolean).join(" ")]));
+  if(c.flow) rows.push(["進行",c.flow]);
+  if(c.cotime) rows.push(["チェックアウト",c.cotime]);
+  if(c.back) rows.push(["復路送迎",c.back]);
+  if(c.depart) rows.push(["出発",c.depart]);
+  return `${backBar(c)}
+  <div class="paper"><h2>イベント工程表
+    <span style="float:right;font-size:13px;font-family:ui-monospace,Menlo,monospace">${blockCode(c)}</span></h2>
+    <div style="margin-bottom:8px">${esc(c.tour||c.group||"")} ${paxStr(c)} ${c.ci?`/ ${fmtD(c.ci)}〜${fmtD(c.co)}`:""}</div>
+    <table><tr><th style="width:150px">項目</th><th>内容</th><th style="width:70px">担当</th></tr>
+    ${rows.map(r=>`<tr><td style="font-weight:700">${esc(r[0])}</td><td>${esc(r[1])}</td><td></td></tr>`).join("")}
+    ${rows.length?"":'<tr><td colspan="3" style="text-align:center;color:#888">入力された予定がここに時系列で並びます</td></tr>'}
+    </table></div>`;
+}
+/* ---------- カレンダー ---------- */
+let calMonth = monthKey(new Date());
+let calMode = "stay";   // "stay"=団体別(滞在) / "venue"=会場別
+/* 日付キー → その日を占有する案件[]。会場別は "日付|会場" をキーにする。
+   滞在の範囲は stayDates() ただ1つに従うので、両カレンダーがずれることはない。 */
+function occupancy(byVenue){
+  const map={};
+  activeCases().filter(c=>!byVenue||c.venue).forEach(c=>{
+    stayDates(c).forEach(k=>{
+      const key = byVenue ? `${k}|${c.venue}` : k;
+      (map[key]=map[key]||[]).push(c);
+    });
+  });
+  return map;
+}
+/* 表示中の年月。calMonth("YYYY-MM")のパースはここだけ */
+const curYM = () => calMonth.split("-").map(Number);
+/* 月送りナビ(カレンダータブ・料金タブで共用) */
+const monthNav = () => { const [y,m]=curYM(); return `
+      <button class="btn sub" onclick="shiftMonth(-1)">←</button>
+      <b style="font-size:16px">${y}年${m}月</b>
+      <button class="btn sub" onclick="shiftMonth(1)">→</button>`; };
+const caseLink = (c,extra="") =>
+  `<a href="#" onclick="go('edit','${c.id}');return false" style="color:inherit;white-space:nowrap">${
+    esc(caseName(c))}${extra}</a>`;
+function calView(){
+  const [y,m]=curYM();
+  const header=`<div class="card no-print" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      ${monthNav()}
+      <span style="flex:1"></span>
+      <button class="btn ${calMode==="stay"?"":"sub"}" onclick="calMode='stay';render()">団体別</button>
+      <button class="btn ${calMode==="venue"?"":"sub"}" onclick="calMode='venue';render()">会場別</button>
+    </div>`;
+  if(calMode==="stay"){
+    const occ=occupancy(false);
+    const rows=eachDay(y,m,({d,key,w,wend})=>{
+      const cs=occ[key]||[];
+      const tot=cs.reduce((s,c)=>s+(pax(c)||0),0);
+      return `<tr>
+        <td class="dt ${wend?"wend":""}">${m}/${d}(${WD[w]})</td>
+        <td class="dt ${wend?"wend":""}" style="text-align:right">${cs.length?cs.length+"組 "+(tot?tot+"名":""):""}</td>
+        <td class="${cs.length?"busy":""}">${cs.map(c=>{
+          const extra = (pax(c)?" "+pax(c)+"名":"") + (c.ci===key?" 🔑IN":"") + (c.venue?" 🏛"+esc(c.venue):"");
+          return `<span class="chip s-${c.status}" style="font-size:10.5px">${c.status}</span> ${caseLink(c,extra)}`;
+        }).join("<br>")}</td>
+      </tr>`;
+    });
+    return `${header}<div class="card tblwrap"><table class="tbl calgrid">
+      <tr><th>日付</th><th style="width:80px">在館</th><th>利用団体(タップで案件へ / 🔑IN=到着日 / 🏛=会場利用)</th></tr>${rows}</table></div>`;
+  }
+  const occ=occupancy(true);
+  const rows=eachDay(y,m,({d,key,w,wend})=>`<tr>
+      <td class="dt ${wend?"wend":""}">${m}/${d}(${WD[w]})</td>
+      ${M.venues.map(v=>{
+        const cs=occ[`${key}|${v}`]||[];
+        return `<td class="${cs.length>1?"dup":(cs.length?"busy":"")}">${
+          cs.map(c=>caseLink(c)).join(" ◆重複! ")}</td>`;
+      }).join("")}
+    </tr>`);
+  return `${header}
+    <div class="card tblwrap">
+      <div style="font-size:12px;color:var(--sub);margin-bottom:6px">赤=ダブルブッキング</div>
+      <table class="tbl calgrid">
+      <tr><th>日付</th>${M.venues.map(v=>`<th>${v}</th>`).join("")}</tr>${rows}</table></div>`;
+}
+function shiftMonth(n){ const [y,m]=curYM();
+  calMonth=monthKey(new Date(y,m-1+n,1)); render(); }
+/* ---------- 料金タブ(ランクカレンダー+料金表) ---------- */
+function setRank(d,v){ if(v) db.rates.cal[d]=v; else delete db.rates.cal[d]; save(); }
+function bulkRank(kind,v){
+  const [y,m]=curYM();
+  eachDay(y,m,({key,wend})=>{
+    if(kind==="all"||(kind==="wend"&&wend)||(kind==="wday"&&!wend)) setRank(key,v);
+    return "";
+  });
+  render();
+}
+/* タップでランクを送る(空→S→A→B→C→D→空)。グリッド上で素早く塗れる */
+function cycleRank(key){
+  const i=RANKS.indexOf(db.rates.cal[key]||"");
+  setRank(key, i<0 ? RANKS[0] : (RANKS[i+1]||""));
+  render();
+}
+/* 月グリッド(7列)。元の料金表Excelと見比べて照合するための表示 */
+function rankGrid(y,m){
+  const first=new Date(y,m-1,1).getDay(), days=new Date(y,m,0).getDate();
+  const cells=[];
+  for(let i=0;i<first;i++) cells.push(null);
+  for(let d=1;d<=days;d++) cells.push(d);
+  while(cells.length%7) cells.push(null);
+  let rows="";
+  for(let i=0;i<cells.length;i+=7){
+    rows += "<tr>" + cells.slice(i,i+7).map(d=>{
+      if(!d) return `<td class="rkcell rk-empty"></td>`;
+      const key=dayKey(new Date(y,m-1,d)), r=db.rates.cal[key]||"";
+      return `<td class="rkcell ${r?"rk-"+r:"rk-none"}" onclick="cycleRank('${key}')">
+        <div class="dnum">${d}</div><div class="rk">${r||"−"}</div></td>`;
+    }).join("") + "</tr>";
+  }
+  return `<table class="rkgrid"><tr>${
+    WD.map((w,i)=>`<th class="${i%6===0?"wend":""}">${w}</th>`).join("")}</tr>${rows}</table>`;
+}
+/* ---------- 正規化形式(中間フォーマット)での取り込み・書き出し ----------
+   人が見るための月グリッドExcelは機械が読むと事故るため、必ず「1行1データ」に
+   落としてから取り込む。受け付ける形式は次の2つだけ:
+     2026-08-15,A            … 日付,ランク
+     Superior Twin,A,14960   … 部屋タイプ,ランク,単価                        */
+let importText="";
+function parseRateText(text){
+  const cal={}, table={}, bad=[];
+  let calN=0, tblN=0;
+  text.trim().split(/\r?\n/).forEach((line,idx)=>{
+    const s=line.trim();
+    if(!s || /^(日付|部屋|#|\/\/)/.test(s)) return;          // 見出し・コメント行は飛ばす
+    const [a,b,c]=s.split(/[,\t]/).map(x=>(x||"").trim());
+    const dm=(a||"").match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+    const rank=(b||"").toUpperCase();
+    if(dm){
+      if(!RANKS.includes(rank)) return bad.push(`${idx+1}行: ランク「${b}」は未知`);
+      cal[`${dm[1]}-${pad2(+dm[2])}-${pad2(+dm[3])}`]=rank; calN++; return;
+    }
+    if(a && RANKS.includes(rank) && c!==undefined && c!=="" && !isNaN(N(c))){
+      if(!M.rooms.includes(a)) return bad.push(`${idx+1}行: 部屋タイプ「${a}」は一覧にない`);
+      (table[a]=table[a]||{})[rank]=String(N(c)); tblN++; return;
+    }
+    bad.push(`${idx+1}行: 形式が読めません — ${s.slice(0,30)}`);
+  });
+  return {cal,table,calN,tblN,bad};
+}
+function previewImport(t){
+  importText=t;
+  const r=parseRateText(t), el=document.getElementById("impInfo");
+  if(!el) return;
+  const dates=Object.keys(r.cal).sort();
+  el.innerHTML = !t.trim() ? "" : `
+    <div style="font-size:12px;margin-top:6px">
+      <b>ランク ${r.calN}日分</b>${dates.length?`(${md(dates[0])}〜${md(dates[dates.length-1])})`:""} /
+      <b>料金 ${r.tblN}件</b>
+      ${r.bad.length?`<div style="color:var(--danger);margin-top:4px">⚠ 読めない行 ${r.bad.length}件<br>${
+        r.bad.slice(0,5).map(esc).join("<br>")}${r.bad.length>5?"<br>…":""}</div>`:
+        '<span style="color:var(--accent)"> ✓ すべて読めました</span>'}
+    </div>`;
+}
+function applyImport(){
+  const r=parseRateText(importText);
+  if(!r.calN && !r.tblN) return alert("取り込めるデータがありません");
+  Object.assign(db.rates.cal, r.cal);
+  for(const k in r.table) db.rates.table[k]=Object.assign(db.rates.table[k]||{}, r.table[k]);
+  save(); importText="";
+  alert(`取り込みました(ランク${r.calN}日分・料金${r.tblN}件)。\n月グリッドで元の表と見比べて確認してください。`);
+  render();
+}
+function exportRates(){
+  const lines=["# 日付,ランク"];
+  Object.keys(db.rates.cal).sort().forEach(k=>lines.push(`${k},${db.rates.cal[k]}`));
+  lines.push("# 部屋タイプ,ランク,単価");
+  Object.keys(db.rates.table).forEach(room=>RANKS.forEach(r=>{
+    const v=db.rates.table[room][r]; if(v) lines.push(`${room},${r},${v}`);
+  }));
+  const blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="料金設定.csv"; a.click();
+}
+function setRate(room,rank,v){
+  db.rates.table[room]=db.rates.table[room]||{};
+  if(v) db.rates.table[room][rank]=v; else delete db.rates.table[room][rank];
+  save();
+}
+function rateView(){
+  const [y,m]=curYM(), days=new Date(y,m,0).getDate();
+  const unset=[];
+  eachDay(y,m,({d,key})=>{ if(!db.rates.cal[key]) unset.push(d); return ""; });
+  const sel=`<select id="bulkRank" style="width:auto">${RANKS.map(r=>`<option>${r}</option>`).join("")}</select>`;
+  /* ランクは泊ごとに要るので、月内の欠けと、それに当たる案件を明示する */
+  const affected=activeCases().filter(c=>c.ci&&stayRanks(c).some(r=>!r.rank));
+  const coverage=`<div style="font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:8px;
+    background:${unset.length?"var(--warn-soft)":"var(--accent-soft)"};color:${unset.length?"var(--warn)":"var(--accent)"};font-weight:700">
+    ${unset.length? `⚠ ${m}月は ${days}日中 ${unset.length}日が未設定 — ${unset.slice(0,12).join("・")}${unset.length>12?"…":""}`
+                  : `✓ ${m}月は全${days}日にランク設定済み`}
+    ${affected.length?`<div style="font-weight:400;margin-top:4px">ランク未設定の泊を含む案件が ${affected.length}件: ${
+      affected.slice(0,4).map(c=>caseLink(c)).join("・")}${affected.length>4?" ほか":""}</div>`:""}
+  </div>`;
+  return `<details class="sec no-print"><summary>📥 料金データの取り込み / 書き出し</summary><div class="body">
+    <div class="hint" style="margin-bottom:6px">
+      元の料金表Excelは人が見る形(月グリッド・色分け・期間まとめ)なので、そのままでは誤読の元になります。
+      <b>下の「1行1データ」形式に落としてから</b>貼り付けてください。
+    </div>
+    <pre style="background:var(--chip);padding:8px;border-radius:8px;font-size:11.5px;overflow-x:auto;margin:0 0 6px">2026-08-15,A
+2026-08-16,B
+Superior Twin,A,14960
+Superior Twin,B,12000</pre>
+    <textarea rows="5" placeholder="ここに貼り付け(# で始まる行と見出し行は無視します)"
+      oninput="previewImport(this.value)">${esc(importText)}</textarea>
+    <div id="impInfo"></div>
+    <div class="btnrow">
+      <button class="btn" onclick="applyImport()">取り込む</button>
+      <button class="btn sub" onclick="exportRates()">現在の設定をCSVで書き出す</button>
+    </div>
+  </div></details>
+  <div class="card">
+    <h2 style="font-size:15px;margin-bottom:6px">💴 部屋料金表(部屋タイプ × ランク・1室1泊)</h2>
+    <div class="hint" style="margin-bottom:8px">直接入力するか、上の取り込みから登録できます</div>
+    <div class="tblwrap"><table class="tbl">
+      <tr><th>部屋タイプ</th>${RANKS.map(r=>`<th style="width:80px">${r}</th>`).join("")}</tr>
+      ${M.rooms.map(room=>`<tr><td class="rowlab">${room}</td>
+        ${RANKS.map(r=>`<td class="num"><input inputmode="numeric" value="${esc((db.rates.table[room]||{})[r]||"")}"
+          oninput="setRate('${room.replace(/'/g,"\\'")}','${r}',this.value)"></td>`).join("")}</tr>`).join("")}
+    </table></div></div>
+  <div class="card">
+    <h2 style="font-size:15px;margin-bottom:6px">📅 料金ランクカレンダー(日ごと)</h2>
+    <div class="hint" style="margin-bottom:8px">
+      ランクは<b>1泊ずつ</b>必要です(1日でも欠けるとその日程は自動料金が出ません)。
+      元のExcelと同じ月表示なので、<b>並べて目視で照合できます</b>。セルをタップするとランクが送られます。
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      ${monthNav()}
+      <span style="flex:1"></span>
+      ${sel}
+      <button class="btn sub" onclick="bulkRank('all',document.getElementById('bulkRank').value)">全日</button>
+      <button class="btn sub" onclick="bulkRank('wday',document.getElementById('bulkRank').value)">平日</button>
+      <button class="btn sub" onclick="bulkRank('wend',document.getElementById('bulkRank').value)">土日</button>
+    </div>
+    ${coverage}
+    ${rankGrid(y,m)}
+  </div>`;
+}
+const backBar = c => `<div class="btnrow no-print">
+  <button class="btn sub" onclick="go('edit','${c.id}')">← 編集に戻る</button>
+  <button class="btn" onclick="window.print()">🖨 印刷 / PDF保存</button></div>`;
+/* ---------- render ---------- */
+function render(){
+  const app=document.getElementById("app");
+  const v={list:listView,edit:editView,share:shareView,quote:quoteView,tt:ttView,cal:calView,rate:rateView}[view.name];
+  app.innerHTML=v();
+  document.getElementById("tab-list").classList.toggle("on",["list","edit","share","quote","tt"].includes(view.name));
+  document.getElementById("tab-cal").classList.toggle("on",view.name==="cal");
+  document.getElementById("tab-rate").classList.toggle("on",view.name==="rate");
+}
+render();
+</script>
